@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>KET 全能冒险岛 · 完美修复版</title>
+    <title>KET 全能冒险岛 · 自然美式发音版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -59,7 +59,7 @@
             "apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"认为","take":"拿","see":"看见","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意思是","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转动","start":"开始","show":"展示","hear":"听见","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"居住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付款","meet":"遇见","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"阅读","allow":"允许","add":"添加","spend":"花费","grow":"生长","open":"打开","walk":"步行","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"要求","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一","last":"最后","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"正确的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够","happy":"快乐的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","open":"开着的","closed":"关着的","free":"自由的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"单独的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"兴奋的","funny":"滑稽的","kind":"友好的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"
         };
 
-        // ========== 语法种子题（已包含 question 字段） ==========
+        // ========== 语法种子题 ==========
         let GRAMMAR_CORE = [
             { question: "I ___ a student.", options: ["am", "is", "are", "be"], correct: 0 },
             { question: "She ___ my sister.", options: ["am", "is", "are", "be"], correct: 1 },
@@ -131,7 +131,6 @@
             { question: "She has ___ to London twice.", options: ["go", "went", "gone", "been"], correct: 3 }
         ];
 
-        // 补足到200个种子（统一格式）
         const extraGram = [
             { question: "My brother ___ playing video games.", options: ["love", "loves", "loving", "loved"], correct: 1 },
             { question: "___ you go to the party tomorrow?", options: ["Do", "Will", "Are", "Have"], correct: 1 },
@@ -158,33 +157,33 @@
             GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
         }
 
-        // ========== 口语种子（都带 hint）==========
+        // ========== 口语种子 ==========
         let SPEAKING_CORE = [
-            { scenario: "早上遇到同学，你应该说：", hint: "You meet a classmate in the morning. What do you say?", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1, type: "speaking" },
-            { scenario: "你想知道时间，可以问：", hint: "You want to know the time. What do you ask?", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0, type: "speaking" },
-            { scenario: "别人说 'Thank you'，你回答：", hint: "Someone says 'Thank you' to you. How do you respond?", options: ["Sorry", "You're welcome", "Yes please", "No"], correct: 1, type: "speaking" },
-            { scenario: "你想介绍朋友Tom，可以说：", hint: "You want to introduce your friend Tom. What do you say?", options: ["I am Tom", "This is my friend Tom", "Tom is a boy", "His name Tom"], correct: 1, type: "speaking" },
-            { scenario: "没听清楚时，可以礼貌地说：", hint: "You didn't hear clearly. What do you say politely?", options: ["What?", "Say again!", "Pardon?", "Speak!"], correct: 2, type: "speaking" },
-            { scenario: "向妈妈要水，可以说：", hint: "You want some water from your mother. What do you say?", options: ["Give me water!", "Can I have some water, please?", "Water now!", "I want water"], correct: 1, type: "speaking" },
-            { scenario: "建议一起去游泳：", hint: "You suggest going swimming together. What do you say?", options: ["Let's go swimming.", "Swim now.", "You swim.", "I swim."], correct: 0, type: "speaking" },
-            { scenario: "打电话找Tom，你说：", hint: "You are calling for Tom. What do you say?", options: ["Where is Tom?", "Hello, this is [name]. May I speak to Tom?", "I want Tom.", "Tom here?"], correct: 1, type: "speaking" },
-            { scenario: "别人问 'How are you?'，你答：", hint: "Someone asks 'How are you?'. How do you answer?", options: ["I'm 10.", "I'm fine, thanks.", "How are you?", "Yes, please."], correct: 1, type: "speaking" },
-            { scenario: "想知道英文怎么说，问：", hint: "You want to know how to say something in English. What do you ask?", options: ["What this?", "How do you say this in English?", "Say English.", "This English?"], correct: 1, type: "speaking" },
-            { scenario: "在餐厅点餐：", hint: "You are at a restaurant. The waiter asks 'What would you like?'. What do you say?", options: ["I'm hungry.", "I'd like a sandwich, please.", "Food, please.", "Yes, I like."], correct: 1, type: "speaking" },
-            { scenario: "问路去图书馆：", hint: "You need directions to the library. What do you ask?", options: ["Where is the library?", "Library now.", "I need library.", "Take me to library."], correct: 0, type: "speaking" },
-            { scenario: "邀请朋友参加生日派对：", hint: "You want to invite a friend to your birthday party. What do you say?", options: ["Come to my party?", "Would you like to come to my birthday party?", "Party, come.", "My birthday, come."], correct: 1, type: "speaking" },
-            { scenario: "弄丢了东西寻求帮助：", hint: "You lost your bag and need help. What do you say?", options: ["I lost! Help!", "I lost my bag. Can you help me?", "My bag gone.", "Find my bag."], correct: 1, type: "speaking" },
-            { scenario: "问对方喜欢的颜色：", hint: "You want to know someone's favourite colour. What do you ask?", options: ["What colour you like?", "What colour do you like?", "You like colour?", "Colour you like?"], correct: 1, type: "speaking" },
-            { scenario: "告诉别人你每周日踢足球：", hint: "You want to say you play football on Sundays. What do you say?", options: ["I play football on Sundays.", "Football Sundays play.", "On Sundays football.", "Play football Sundays."], correct: 0, type: "speaking" },
-            { scenario: "询问价格：", hint: "You want to know the price. What do you ask?", options: ["How many?", "How much is it?", "Price now.", "Give price."], correct: 1, type: "speaking" },
-            { scenario: "表达最喜欢的科目是科学：", hint: "You want to say your favourite subject is science. What do you say?", options: ["My favourite subject is science.", "Science good.", "I like science good.", "Subject science best."], correct: 0, type: "speaking" },
-            { scenario: "与朋友告别：", hint: "You are saying goodbye to a friend. What do you say?", options: ["Hello!", "Nice to meet you.", "See you later!", "How are you?"], correct: 2, type: "speaking" },
-            { scenario: "请对方重复一遍：", hint: "You want someone to repeat. What do you say politely?", options: ["Say again.", "Repeat, please.", "Could you say that again, please?", "Again."], correct: 2, type: "speaking" },
-            { scenario: "在商店想试衣服：", hint: "You want to try on some clothes in a shop. What do you ask?", options: ["Can I try this on?", "I wear it.", "Give me this.", "This clothes me."], correct: 0, type: "speaking" },
-            { scenario: "问去公园的路：", hint: "You are looking for the park. What do you ask?", options: ["Park where?", "Excuse me, how do I get to the park?", "Take me park.", "I want park."], correct: 1, type: "speaking" },
-            { scenario: "建议周末看电影：", hint: "You suggest watching a film at the weekend. What do you say?", options: ["Let's see a film at the weekend.", "Weekend film see.", "Film weekend.", "See film weekend."], correct: 0, type: "speaking" },
-            { scenario: "告诉别人你有宠物猫：", hint: "You want to say you have a pet cat. What do you say?", options: ["I have a pet cat.", "Cat my pet.", "My cat is pet.", "Pet cat I have."], correct: 0, type: "speaking" },
-            { scenario: "别人借橡皮：", hint: "A classmate asks to borrow an eraser. What do you say?", options: ["Here you are.", "Go away.", "No give.", "It's mine."], correct: 0, type: "speaking" }
+            { scenario: "早上遇到同学，你应该说：", hint: "You meet a classmate in the morning. What do you say?", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1 },
+            { scenario: "你想知道时间，可以问：", hint: "You want to know the time. What do you ask?", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0 },
+            { scenario: "别人说 'Thank you'，你回答：", hint: "Someone says 'Thank you' to you. How do you respond?", options: ["Sorry", "You're welcome", "Yes please", "No"], correct: 1 },
+            { scenario: "你想介绍朋友Tom，可以说：", hint: "You want to introduce your friend Tom. What do you say?", options: ["I am Tom", "This is my friend Tom", "Tom is a boy", "His name Tom"], correct: 1 },
+            { scenario: "没听清楚时，可以礼貌地说：", hint: "You didn't hear clearly. What do you say politely?", options: ["What?", "Say again!", "Pardon?", "Speak!"], correct: 2 },
+            { scenario: "向妈妈要水，可以说：", hint: "You want some water from your mother. What do you say?", options: ["Give me water!", "Can I have some water, please?", "Water now!", "I want water"], correct: 1 },
+            { scenario: "建议一起去游泳：", hint: "You suggest going swimming together. What do you say?", options: ["Let's go swimming.", "Swim now.", "You swim.", "I swim."], correct: 0 },
+            { scenario: "打电话找Tom，你说：", hint: "You are calling for Tom. What do you say?", options: ["Where is Tom?", "Hello, this is [name]. May I speak to Tom?", "I want Tom.", "Tom here?"], correct: 1 },
+            { scenario: "别人问 'How are you?'，你答：", hint: "Someone asks 'How are you?'. How do you answer?", options: ["I'm 10.", "I'm fine, thanks.", "How are you?", "Yes, please."], correct: 1 },
+            { scenario: "想知道英文怎么说，问：", hint: "You want to know how to say something in English. What do you ask?", options: ["What this?", "How do you say this in English?", "Say English.", "This English?"], correct: 1 },
+            { scenario: "在餐厅点餐：", hint: "You are at a restaurant. The waiter asks 'What would you like?'. What do you say?", options: ["I'm hungry.", "I'd like a sandwich, please.", "Food, please.", "Yes, I like."], correct: 1 },
+            { scenario: "问路去图书馆：", hint: "You need directions to the library. What do you ask?", options: ["Where is the library?", "Library now.", "I need library.", "Take me to library."], correct: 0 },
+            { scenario: "邀请朋友参加生日派对：", hint: "You want to invite a friend to your birthday party. What do you say?", options: ["Come to my party?", "Would you like to come to my birthday party?", "Party, come.", "My birthday, come."], correct: 1 },
+            { scenario: "弄丢了东西寻求帮助：", hint: "You lost your bag and need help. What do you say?", options: ["I lost! Help!", "I lost my bag. Can you help me?", "My bag gone.", "Find my bag."], correct: 1 },
+            { scenario: "问对方喜欢的颜色：", hint: "You want to know someone's favourite colour. What do you ask?", options: ["What colour you like?", "What colour do you like?", "You like colour?", "Colour you like?"], correct: 1 },
+            { scenario: "告诉别人你每周日踢足球：", hint: "You want to say you play football on Sundays. What do you say?", options: ["I play football on Sundays.", "Football Sundays play.", "On Sundays football.", "Play football Sundays."], correct: 0 },
+            { scenario: "询问价格：", hint: "You want to know the price. What do you ask?", options: ["How many?", "How much is it?", "Price now.", "Give price."], correct: 1 },
+            { scenario: "表达最喜欢的科目是科学：", hint: "You want to say your favourite subject is science. What do you say?", options: ["My favourite subject is science.", "Science good.", "I like science good.", "Subject science best."], correct: 0 },
+            { scenario: "与朋友告别：", hint: "You are saying goodbye to a friend. What do you say?", options: ["Hello!", "Nice to meet you.", "See you later!", "How are you?"], correct: 2 },
+            { scenario: "请对方重复一遍：", hint: "You want someone to repeat. What do you say politely?", options: ["Say again.", "Repeat, please.", "Could you say that again, please?", "Again."], correct: 2 },
+            { scenario: "在商店想试衣服：", hint: "You want to try on some clothes in a shop. What do you ask?", options: ["Can I try this on?", "I wear it.", "Give me this.", "This clothes me."], correct: 0 },
+            { scenario: "问去公园的路：", hint: "You are looking for the park. What do you ask?", options: ["Park where?", "Excuse me, how do I get to the park?", "Take me park.", "I want park."], correct: 1 },
+            { scenario: "建议周末看电影：", hint: "You suggest watching a film at the weekend. What do you say?", options: ["Let's see a film at the weekend.", "Weekend film see.", "Film weekend.", "See film weekend."], correct: 0 },
+            { scenario: "告诉别人你有宠物猫：", hint: "You want to say you have a pet cat. What do you say?", options: ["I have a pet cat.", "Cat my pet.", "My cat is pet.", "Pet cat I have."], correct: 0 },
+            { scenario: "别人借橡皮：", hint: "A classmate asks to borrow an eraser. What do you say?", options: ["Here you are.", "Go away.", "No give.", "It's mine."], correct: 0 }
         ];
 
         const extraSp = [
@@ -214,7 +213,7 @@
         ];
         while (SPEAKING_CORE.length < 150) {
             const ex = extraSp[SPEAKING_CORE.length % extraSp.length];
-            SPEAKING_CORE.push({ scenario: ex.s, hint: ex.h, options: [...ex.o], correct: ex.c, type: "speaking" });
+            SPEAKING_CORE.push({ scenario: ex.s, hint: ex.h, options: [...ex.o], correct: ex.c });
         }
 
         // ========== 扩展题库 ==========
@@ -233,14 +232,12 @@
                 const src = core[Math.floor(Math.random() * core.length)];
                 const newOpts = shuffleArray(src.options);
                 const newItem = { ...src, options: newOpts };
-                // 确保 correct 索引指向乱序后的正确答案
                 newItem.correct = newOpts.indexOf(src.options[src.correct]);
                 bank.push(newItem);
             }
             return bank;
         }
 
-        // 生成带 type 标记的题目池
         let GRAMMAR_QUESTIONS = extendQuestions(GRAMMAR_CORE, 1500).map(q => ({ ...q, type: 'grammar' }));
         let SPEAKING_QUESTIONS = extendQuestions(SPEAKING_CORE, 500).map(q => ({ ...q, type: 'speaking' }));
 
@@ -267,20 +264,38 @@
             } catch(e) {}
         }
 
-        // 可靠的链式朗读：在 onend 中播放下一个
+        // 🌟 查找最佳美式英语语音
+        function getBestAmericanVoice() {
+            if (!('speechSynthesis' in window)) return null;
+            const voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) return null;
+            // 优先级列表
+            const preferred = ['Samantha', 'Alex', 'Microsoft Zira', 'Google US English', 'Karen'];
+            for (let name of preferred) {
+                const found = voices.find(v => v.name.includes(name) && v.lang.startsWith('en-US'));
+                if (found) return found;
+            }
+            // 其次只要是美式英语
+            const usVoice = voices.find(v => v.lang.startsWith('en-US'));
+            return usVoice || voices[0];
+        }
+
         function speakSequence(phrases) {
             if (!('speechSynthesis' in window) || phrases.length === 0) return;
             window.speechSynthesis.cancel();
+            const voice = getBestAmericanVoice();
             let index = 0;
             const speakNext = () => {
                 if (index >= phrases.length) return;
                 const text = phrases[index];
                 if (!text) { index++; speakNext(); return; }
                 const u = new SpeechSynthesisUtterance(text);
+                u.voice = voice;
                 u.lang = 'en-US';
                 u.rate = 0.9;
+                u.pitch = 1.0;
                 u.onend = () => { index++; speakNext(); };
-                u.onerror = () => { index++; speakNext(); }; // 避免卡住
+                u.onerror = () => { index++; speakNext(); };
                 window.speechSynthesis.speak(u);
             };
             speakNext();
@@ -289,14 +304,27 @@
         function speakSingle(text) {
             if ('speechSynthesis' in window && text) {
                 window.speechSynthesis.cancel();
+                const voice = getBestAmericanVoice();
                 const u = new SpeechSynthesisUtterance(text);
+                u.voice = voice;
                 u.lang = 'en-US';
                 u.rate = 0.9;
+                u.pitch = 1.0;
                 window.speechSynthesis.speak(u);
             }
         }
 
-        // 词汇题生成（带 type: 'vocab'）
+        // 确保语音列表加载完成（移动端需要）
+        function initVoices() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.getVoices();
+                window.speechSynthesis.onvoiceschanged = () => {
+                    window.speechSynthesis.getVoices();
+                };
+            }
+        }
+        initVoices();
+
         function generateVocabQuestions(count) {
             const shuffled = [...ALL_WORDS].sort(() => Math.random() - 0.5).slice(0, count);
             return shuffled.map(word => {
@@ -331,7 +359,7 @@
             }
         }
         function renderStart() {
-            container.innerHTML = `<div class="dino">🦖</div><h1>KET 全能冒险岛</h1><p>📚词汇2000 | 📐语法1500 | 🗣️口语500<br>🎧点击🔊听标准发音</p><button class="btn start-btn" onclick="game.startGame()">开始冒险 🚀</button>`;
+            container.innerHTML = `<div class="dino">🦖</div><h1>KET 全能冒险岛</h1><p>📚词汇2000 | 📐语法1500 | 🗣️口语500<br>🎧 自然美式发音 · 手机也能听</p><button class="btn start-btn" onclick="game.startGame()">开始冒险 🚀</button>`;
         }
         function renderWorldSelect() {
             const s = state.collectedStars;
@@ -353,7 +381,6 @@
             } else if (q.type === 'grammar') {
                 html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
             } else {
-                // speaking
                 html = `<div class="question-text">${q.scenario}</div><button class="btn" onclick="game.readScenario()">🔊 听发音</button>`;
             }
             const opts = q.options.map((opt,i)=>`<button class="option-btn" id="opt${i}" onclick="game.answer(${i})">${opt}</button>`).join('');
@@ -450,7 +477,6 @@
             state.totalStars=Object.values(state.collectedStars).reduce((a,b)=>a+b,0);
             container.innerHTML = `<div class="dino">😢</div><h2>生命耗尽</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(state.totalStars)}</p><button class="btn" onclick="game.restart()">重新挑战</button>`;
         }
-        // 发音：先情景提示，再正确答案
         function readScenario() {
             const q = state.questions[state.currentIndex];
             if (q && q.type === 'speaking') {
