@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>KET 全能冒险岛 · 自然美式发音版</title>
+    <title>KET 全能冒险岛 · 每日打卡版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -32,7 +32,7 @@
         .option-btn.correct { background: #2ecc71; border-color: #27ae60; color: white; }
         .option-btn.wrong { background: #e74c3c; border-color: #c0392b; color: white; }
         .option-btn:disabled { pointer-events: none; opacity: 0.8; }
-        .feedback-msg { font-size: 1.2rem; font-weight: bold; margin-top: 10px; min-height: 30px; }
+        .feedback-msg { font-size: 1.2rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; }
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
@@ -40,6 +40,9 @@
         .world-card:hover { background: #ffeaa7; transform: scale(1.03); }
         .world-icon { font-size: 2.5rem; }
         .certificate { background: #fef9e7; border: 8px double #f1c40f; border-radius: 30px; padding: 20px; margin: 15px 0; }
+        .daily-progress { font-size: 2rem; margin: 15px 0; }
+        .goal-select { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .goal-btn { background: #2ecc71; color: white; border: none; border-radius: 20px; padding: 10px 18px; font-size: 1.1rem; cursor: pointer; }
         @media (max-width: 500px) { .options { grid-template-columns: 1fr; } .world-card { width: 80%; } }
     </style>
 </head>
@@ -48,7 +51,7 @@
 
 <script>
     (function() {
-        // ========== 词汇库（2000词） ==========
+        // ========== 词汇库 ==========
         const KET_LEXICON = {
             nouns: ["apple","banana","orange","grape","water","milk","bread","rice","chicken","fish","dog","cat","bird","rabbit","horse","sheep","cow","elephant","tiger","lion","book","pen","pencil","ruler","bag","desk","chair","table","door","window","car","bus","train","bicycle","plane","boat","taxi","motorbike","helicopter","house","school","park","shop","hospital","library","cinema","museum","market","mother","father","sister","brother","baby","friend","teacher","student","doctor","shirt","dress","shoes","hat","coat","socks","trousers","jacket","sweater","sun","moon","star","rain","snow","wind","cloud","flower","tree","grass","city","town","village","river","mountain","sea","beach","island","forest","breakfast","lunch","dinner","cake","ice cream","juice","tea","coffee","sugar","name","time","day","week","month","year","hour","minute","money","price","phone","computer","camera","television","radio","music","song","game","family","home","room","bed","bath","kitchen","garden","floor","wall","party","holiday","present","letter","story","newspaper","magazine","country","language","weather","world","road","street","bridge","airport","photo","picture","map","ticket","key","umbrella","baggage","passport"],
             verbs: ["be","have","do","say","go","get","make","know","think","take","see","come","want","look","use","find","give","tell","work","call","try","ask","need","feel","become","leave","put","mean","keep","let","begin","seem","help","talk","turn","start","show","hear","play","run","move","like","live","believe","hold","bring","happen","write","provide","sit","stand","lose","pay","meet","include","continue","set","learn","change","lead","understand","watch","follow","stop","create","speak","read","allow","add","spend","grow","open","walk","win","offer","remember","love","consider","appear","buy","wait","serve","die","send","expect","build","stay","fall","cut","reach","kill","remain","suggest","raise","pass","sell","require","report","decide","pull"],
@@ -59,7 +62,7 @@
             "apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"认为","take":"拿","see":"看见","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意思是","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转动","start":"开始","show":"展示","hear":"听见","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"居住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付款","meet":"遇见","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"阅读","allow":"允许","add":"添加","spend":"花费","grow":"生长","open":"打开","walk":"步行","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"要求","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一","last":"最后","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"正确的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够","happy":"快乐的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","open":"开着的","closed":"关着的","free":"自由的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"单独的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"兴奋的","funny":"滑稽的","kind":"友好的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"
         };
 
-        // ========== 语法种子题 ==========
+        // 语法与口语种子保持不变，此处省略（完整代码见上一版）
         let GRAMMAR_CORE = [
             { question: "I ___ a student.", options: ["am", "is", "are", "be"], correct: 0 },
             { question: "She ___ my sister.", options: ["am", "is", "are", "be"], correct: 1 },
@@ -130,7 +133,6 @@
             { question: "I have ___ my lunch.", options: ["finish", "finishes", "finished", "finishing"], correct: 2 },
             { question: "She has ___ to London twice.", options: ["go", "went", "gone", "been"], correct: 3 }
         ];
-
         const extraGram = [
             { question: "My brother ___ playing video games.", options: ["love", "loves", "loving", "loved"], correct: 1 },
             { question: "___ you go to the party tomorrow?", options: ["Do", "Will", "Are", "Have"], correct: 1 },
@@ -153,11 +155,8 @@
             { question: "He is the ___ player in the team.", options: ["good", "better", "best", "well"], correct: 2 },
             { question: "___ dog is very friendly.", options: ["They", "Them", "Their", "Theirs"], correct: 2 }
         ];
-        while (GRAMMAR_CORE.length < 200) {
-            GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
-        }
+        while (GRAMMAR_CORE.length < 200) GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
 
-        // ========== 口语种子 ==========
         let SPEAKING_CORE = [
             { scenario: "早上遇到同学，你应该说：", hint: "You meet a classmate in the morning. What do you say?", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1 },
             { scenario: "你想知道时间，可以问：", hint: "You want to know the time. What do you ask?", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0 },
@@ -185,7 +184,6 @@
             { scenario: "告诉别人你有宠物猫：", hint: "You want to say you have a pet cat. What do you say?", options: ["I have a pet cat.", "Cat my pet.", "My cat is pet.", "Pet cat I have."], correct: 0 },
             { scenario: "别人借橡皮：", hint: "A classmate asks to borrow an eraser. What do you say?", options: ["Here you are.", "Go away.", "No give.", "It's mine."], correct: 0 }
         ];
-
         const extraSp = [
             { s: "问对方年龄：", h: "You want to ask someone's age. What do you say?", o: ["How old are you?", "How age you?", "What age you?", "You are how old?"], c: 0 },
             { s: "你生病去看医生：", h: "You are sick and at the doctor's. What do you say?", o: ["I'm sick. I have a fever.", "I sick.", "Fever me.", "Doctor, help."], c: 0 },
@@ -216,16 +214,7 @@
             SPEAKING_CORE.push({ scenario: ex.s, hint: ex.h, options: [...ex.o], correct: ex.c });
         }
 
-        // ========== 扩展题库 ==========
-        function shuffleArray(arr) {
-            const a = [...arr];
-            for (let i = a.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [a[i], a[j]] = [a[j], a[i]];
-            }
-            return a;
-        }
-
+        function shuffleArray(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
         function extendQuestions(core, target) {
             const bank = [...core];
             while (bank.length < target) {
@@ -237,13 +226,11 @@
             }
             return bank;
         }
-
         let GRAMMAR_QUESTIONS = extendQuestions(GRAMMAR_CORE, 1500).map(q => ({ ...q, type: 'grammar' }));
         let SPEAKING_QUESTIONS = extendQuestions(SPEAKING_CORE, 500).map(q => ({ ...q, type: 'speaking' }));
 
-        // ========== 游戏状态 ==========
         const TOTAL_LIVES = 3;
-        const QUESTION_TIME = 15;
+        const QUESTION_TIME = 30;
         const QUESTIONS_PER_ROUND = 20;
 
         let state = {
@@ -251,8 +238,28 @@
             score: 0, stars: 0, lives: TOTAL_LIVES, timerInterval: null,
             timeLeft: QUESTION_TIME, canAnswer: true,
             collectedStars: { vocab: 0, grammar: 0, speaking: 0 },
-            totalStars: 0, feedback: '', currentCorrectCount: 0
+            totalStars: 0, feedback: '', currentCorrectCount: 0,
+            dailyMode: false, dailyTarget: 0
         };
+
+        const STORAGE_KEY_TARGET = 'ket_daily_target';
+        const STORAGE_KEY_PROGRESS = 'ket_daily_progress';
+        const STORAGE_KEY_STREAK = 'ket_streak';
+
+        function getTodayStr() { return new Date().toISOString().slice(0,10); }
+        function getDailyTarget() { return parseInt(localStorage.getItem(STORAGE_KEY_TARGET)) || 0; }
+        function setDailyTarget(n) { localStorage.setItem(STORAGE_KEY_TARGET, n); }
+        function getDailyProgress() {
+            const data = JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS) || '{}');
+            return data[getTodayStr()] || 0;
+        }
+        function setDailyProgress(n) {
+            const data = JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS) || '{}');
+            data[getTodayStr()] = n;
+            localStorage.setItem(STORAGE_KEY_PROGRESS, JSON.stringify(data));
+        }
+        function getStreak() { return parseInt(localStorage.getItem(STORAGE_KEY_STREAK)) || 0; }
+        function setStreak(n) { localStorage.setItem(STORAGE_KEY_STREAK, n); }
 
         function playSound(type) {
             try {
@@ -264,20 +271,15 @@
             } catch(e) {}
         }
 
-        // 🌟 查找最佳美式英语语音
         function getBestAmericanVoice() {
             if (!('speechSynthesis' in window)) return null;
             const voices = window.speechSynthesis.getVoices();
-            if (voices.length === 0) return null;
-            // 优先级列表
             const preferred = ['Samantha', 'Alex', 'Microsoft Zira', 'Google US English', 'Karen'];
             for (let name of preferred) {
                 const found = voices.find(v => v.name.includes(name) && v.lang.startsWith('en-US'));
                 if (found) return found;
             }
-            // 其次只要是美式英语
-            const usVoice = voices.find(v => v.lang.startsWith('en-US'));
-            return usVoice || voices[0];
+            return voices.find(v => v.lang.startsWith('en-US')) || voices[0] || null;
         }
 
         function speakSequence(phrases) {
@@ -290,10 +292,8 @@
                 const text = phrases[index];
                 if (!text) { index++; speakNext(); return; }
                 const u = new SpeechSynthesisUtterance(text);
-                u.voice = voice;
-                u.lang = 'en-US';
-                u.rate = 0.9;
-                u.pitch = 1.0;
+                if (voice) u.voice = voice;
+                u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1.0;
                 u.onend = () => { index++; speakNext(); };
                 u.onerror = () => { index++; speakNext(); };
                 window.speechSynthesis.speak(u);
@@ -306,24 +306,34 @@
                 window.speechSynthesis.cancel();
                 const voice = getBestAmericanVoice();
                 const u = new SpeechSynthesisUtterance(text);
-                u.voice = voice;
-                u.lang = 'en-US';
-                u.rate = 0.9;
-                u.pitch = 1.0;
+                if (voice) u.voice = voice;
+                u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1.0;
                 window.speechSynthesis.speak(u);
             }
         }
 
-        // 确保语音列表加载完成（移动端需要）
-        function initVoices() {
+        function activateSpeech() {
             if ('speechSynthesis' in window) {
-                window.speechSynthesis.getVoices();
-                window.speechSynthesis.onvoiceschanged = () => {
-                    window.speechSynthesis.getVoices();
-                };
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance('');
+                u.volume = 0;
+                window.speechSynthesis.speak(u);
             }
         }
-        initVoices();
+        document.addEventListener('click', function once() {
+            activateSpeech();
+            document.removeEventListener('click', once);
+        }, { once: true });
+
+        function getExplanation(q, selectedIdx) {
+            if (q.type === 'vocab') {
+                return `正确答案是“${q.options[q.correct]}”。英文单词“${q.english}”的中文意思是“${q.options[q.correct]}”。`;
+            } else if (q.type === 'grammar') {
+                return `正确答案是“${q.options[q.correct]}”。请记住这个语法点的用法哦。`;
+            } else {
+                return `正确答案是“${q.options[q.correct]}”。这是因为该情景下应该这样表达。`;
+            }
+        }
 
         function generateVocabQuestions(count) {
             const shuffled = [...ALL_WORDS].sort(() => Math.random() - 0.5).slice(0, count);
@@ -340,27 +350,60 @@
                 return { type: 'vocab', english: word, options, correct: options.indexOf(correctCN) };
             });
         }
-
-        function generateGrammarQuestions(count) {
-            return [...GRAMMAR_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, count);
-        }
-
-        function generateSpeakingQuestions(count) {
-            return [...SPEAKING_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, count);
-        }
+        function generateGrammarQuestions(count) { return [...GRAMMAR_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, count); }
+        function generateSpeakingQuestions(count) { return [...SPEAKING_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, count); }
 
         const container = document.getElementById('gameContainer');
+
         function render() {
             switch(state.screen) {
                 case 'start': renderStart(); break;
                 case 'selectWorld': renderWorldSelect(); break;
                 case 'playing': renderPlaying(); break;
                 case 'result': renderResult(); break;
+                case 'daily': renderDaily(); break;
             }
         }
+
         function renderStart() {
-            container.innerHTML = `<div class="dino">🦖</div><h1>KET 全能冒险岛</h1><p>📚词汇2000 | 📐语法1500 | 🗣️口语500<br>🎧 自然美式发音 · 手机也能听</p><button class="btn start-btn" onclick="game.startGame()">开始冒险 🚀</button>`;
+            const streak = getStreak();
+            container.innerHTML = `
+                <div class="dino">🦖</div><h1>KET 全能冒险岛</h1>
+                <p>📚词汇2000 | 📐语法1500 | 🗣️口语500</p>
+                <button class="btn start-btn" onclick="game.startDaily()">📅 每日打卡</button>
+                <button class="btn start-btn" style="background:#2980b9;box-shadow:0 5px 0 #1c5980;" onclick="game.startGame()">自由闯关 🚀</button>
+                <p style="margin-top:15px;">🔥 连续打卡 ${streak} 天</p>
+            `;
         }
+
+        function renderDaily() {
+            const target = getDailyTarget();
+            const progress = getDailyProgress();
+            const streak = getStreak();
+            if (!target) {
+                container.innerHTML = `
+                    <h2>设定每日单词目标</h2>
+                    <p>你想要每天记多少个单词？</p>
+                    <div class="goal-select">
+                        ${[5,10,15,20,30,40,50,60].map(n => `<button class="goal-btn" onclick="game.setDailyGoal(${n})">${n} 个</button>`).join('')}
+                    </div>
+                    <button class="btn" onclick="game.goToStart()">返回</button>
+                `;
+                return;
+            }
+            const done = progress >= target;
+            container.innerHTML = `
+                <h2>📅 今日打卡</h2>
+                <p>目标：${target} 个单词</p>
+                <div class="daily-progress">✅ ${progress} / ${target}</div>
+                <div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100, (progress/target)*100)}%;"></div></div>
+                <p>🔥 已连续打卡 ${streak} 天</p>
+                ${done ? `<p style="color:green; font-size:1.5rem;">🎉 今日目标已完成！</p>` : `<button class="btn" onclick="game.startDailyVocab()">开始今日学习</button>`}
+                <button class="btn" onclick="game.goToStart()" style="background:#95a5a6;">返回首页</button>
+                <button class="btn" onclick="game.resetDaily()" style="background:#e74c3c; box-shadow:0 5px 0 #c0392b;">重新设定目标</button>
+            `;
+        }
+
         function renderWorldSelect() {
             const s = state.collectedStars;
             container.innerHTML = `
@@ -371,27 +414,25 @@
                 <br><button class="btn" onclick="game.goToStart()" style="background:#95a5a6;">返回首页</button>
                 <p>生命：${'❤️'.repeat(state.lives)}</p>`;
         }
+
         function renderPlaying() {
             const q = state.questions[state.currentIndex];
             if (!q) return;
             const progress = (state.currentIndex / state.questions.length) * 100;
             let html = '';
-            if (q.type === 'vocab') {
-                html = `<div class="question-text">"${q.english}" 的中文意思是？</div>`;
-            } else if (q.type === 'grammar') {
-                html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
-            } else {
-                html = `<div class="question-text">${q.scenario}</div><button class="btn" onclick="game.readScenario()">🔊 听发音</button>`;
-            }
+            if (q.type === 'vocab') html = `<div class="question-text">"${q.english}" 的中文意思是？</div>`;
+            else if (q.type === 'grammar') html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
+            else html = `<div class="question-text">${q.scenario}</div><button class="btn" onclick="game.readScenario()">🔊 听发音</button>`;
             const opts = q.options.map((opt,i)=>`<button class="option-btn" id="opt${i}" onclick="game.answer(${i})">${opt}</button>`).join('');
             container.innerHTML = `
-                <div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${({vocab:'🌳词汇',grammar:'⛰️语法',speaking:'🏘️口语'})[state.currentWorld]}</span><span class="score">⭐ ${state.stars}</span></div>
+                <div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${state.dailyMode?'📅每日打卡':({vocab:'🌳词汇',grammar:'⛰️语法',speaking:'🏘️口语'})[state.currentWorld]}</span><span class="score">⭐ ${state.stars}</span></div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div>
                 <div class="timer">⏳ ${state.timeLeft}</div>
                 <div class="question-area">${html}</div>
                 <div class="options">${opts}</div>
                 <div class="feedback-msg">${state.feedback||''}</div>`;
         }
+
         function renderResult() {
             const t = state.totalStars;
             let cert = t>=8?'<div class="certificate">🎉 金钥匙！</div>':(t>=5?'<div class="certificate">👍 不错！</div>':'');
@@ -401,9 +442,35 @@
         function startGame() {
             state.lives = TOTAL_LIVES; state.score=0; state.stars=0;
             state.collectedStars = { vocab:0, grammar:0, speaking:0 };
-            state.totalStars=0; state.screen='selectWorld'; render();
+            state.totalStars=0; state.dailyMode=false; state.screen='selectWorld'; render();
+        }
+        function startDaily() { state.screen='daily'; render(); }
+        function setDailyGoal(n) {
+            setDailyTarget(n);
+            setDailyProgress(0);
+            render();
+        }
+        function resetDaily() {
+            localStorage.removeItem(STORAGE_KEY_TARGET);
+            localStorage.removeItem(STORAGE_KEY_PROGRESS);
+            render();
+        }
+        function startDailyVocab() {
+            const target = getDailyTarget();
+            if (!target) return;
+            state.dailyMode = true;
+            state.currentWorld = 'vocab';
+            state.currentIndex = 0;
+            state.currentCorrectCount = 0;
+            state.canAnswer = true;
+            state.feedback = '';
+            state.questions = generateVocabQuestions(target);
+            state.screen = 'playing';
+            startTimer();
+            render();
         }
         function selectWorld(world) {
+            state.dailyMode = false;
             state.currentWorld=world; state.currentIndex=0; state.currentCorrectCount=0;
             state.canAnswer=true; state.feedback='';
             if (world==='vocab') state.questions=generateVocabQuestions(QUESTIONS_PER_ROUND);
@@ -435,24 +502,29 @@
                 if(q.type==='vocab') speakSingle(q.english);
                 else if(q.type==='speaking') speakSingle(q.options[q.correct]);
             } else {
-                state.lives--; state.feedback='❌ 错误！生命-1'; playSound('wrong');
+                state.lives--; 
+                state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
+                playSound('wrong');
             }
             setTimeout(()=>{
                 if(state.lives<=0) gameOver();
                 else nextQuestion();
-            }, 1200);
+            }, 1500);
         }
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
-            state.feedback='⏰ 时间到！生命-1'; playSound('wrong');
             const q = state.questions[state.currentIndex];
+            state.feedback = `⏰ 时间到！生命-1\n${getExplanation(q, -1)}`;
+            playSound('wrong');
             const btn = document.getElementById(`opt${q.correct}`); if(btn) btn.classList.add('correct');
             setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 1500);
         }
         function nextQuestion() {
             state.currentIndex++;
-            if(state.currentIndex >= state.questions.length) finishWorld();
-            else { state.canAnswer=true; state.feedback=''; startTimer(); render(); }
+            if(state.currentIndex >= state.questions.length) {
+                if (state.dailyMode) finishDaily();
+                else finishWorld();
+            } else { state.canAnswer=true; state.feedback=''; startTimer(); render(); }
         }
         function finishWorld() {
             clearInterval(state.timerInterval);
@@ -465,6 +537,30 @@
             state.totalStars=Object.values(state.collectedStars).reduce((a,b)=>a+b,0);
             state.currentCorrectCount=0;
             container.innerHTML = `<h2>${({vocab:'🌳词汇森林',grammar:'⛰️语法山',speaking:'🏘️口语村'})[state.currentWorld]} 完成！</h2><div style="font-size:2rem;">${'⭐'.repeat(stars)}</div><p>正确 ${correct}/${total} 题，获得 ${stars} 颗星</p><button class="btn" onclick="game.continueAdventure()">继续冒险</button>`;
+        }
+        function finishDaily() {
+            clearInterval(state.timerInterval);
+            const total = state.questions.length;
+            const correct = state.currentCorrectCount;
+            setDailyProgress(total);
+            const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
+            const progressData = JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS) || '{}');
+            const hasYesterday = progressData[yesterday] !== undefined;
+            let streak = getStreak();
+            if (getTodayStr() !== yesterday && hasYesterday) {
+                streak += 1;
+            } else if (!hasYesterday) {
+                streak = 1;
+            }
+            setStreak(streak);
+            state.dailyMode = false;
+            container.innerHTML = `
+                <h2>📅 今日打卡完成！</h2>
+                <p>学习了 ${total} 个单词，答对 ${correct} 题</p>
+                <p>🔥 连续打卡 ${streak} 天</p>
+                <button class="btn" onclick="game.goToStart()">返回首页</button>
+                <button class="btn" onclick="game.startDaily()">继续打卡</button>
+            `;
         }
         function continueAdventure() {
             if(state.lives<=0) { gameOver(); return; }
@@ -489,7 +585,7 @@
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, selectWorld, answer, readScenario, continueAdventure, goToStart, restart };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, readScenario, continueAdventure, goToStart, restart };
         render();
     })();
 </script>
