@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>KET 全能冒险岛 · 手机发音终极修复</title>
+    <title>KET 全能冒险岛 · 最终修复版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -23,7 +23,7 @@
         .progress-bar { width: 100%; height: 12px; background: #ddd; border-radius: 10px; margin: 10px 0; overflow: hidden; }
         .progress-fill { height: 100%; width: 0%; background: #2ecc71; border-radius: 10px; transition: width 0.4s; }
         .timer { font-size: 1.8rem; font-weight: bold; color: #e74c3c; margin: 10px 0; }
-        .dino { font-size: 4rem; transition: transform 0.2s; }
+        .dino { font-size: 4rem; }
         .question-area { background: #fef9e7; border-radius: 25px; padding: 20px; margin: 10px 0; min-height: 140px; display: flex; flex-direction: column; justify-content: center; }
         .question-text { font-size: 1.5rem; font-weight: bold; color: #2c3e50; margin-bottom: 8px; }
         .options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 15px 0; }
@@ -32,7 +32,7 @@
         .option-btn.correct { background: #2ecc71; border-color: #27ae60; color: white; }
         .option-btn.wrong { background: #e74c3c; border-color: #c0392b; color: white; }
         .option-btn:disabled { pointer-events: none; opacity: 0.8; }
-        .feedback-msg { font-size: 1.2rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; }
+        .feedback-msg { font-size: 1.2rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; }
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
@@ -48,10 +48,9 @@
 </head>
 <body>
 <div class="game-container" id="gameContainer"></div>
-
 <script>
     (function() {
-        // ========== 词汇库 ==========
+        // ===== 词汇库 =====
         const KET_LEXICON = {
             nouns: ["apple","banana","orange","grape","water","milk","bread","rice","chicken","fish","dog","cat","bird","rabbit","horse","sheep","cow","elephant","tiger","lion","book","pen","pencil","ruler","bag","desk","chair","table","door","window","car","bus","train","bicycle","plane","boat","taxi","motorbike","helicopter","house","school","park","shop","hospital","library","cinema","museum","market","mother","father","sister","brother","baby","friend","teacher","student","doctor","shirt","dress","shoes","hat","coat","socks","trousers","jacket","sweater","sun","moon","star","rain","snow","wind","cloud","flower","tree","grass","city","town","village","river","mountain","sea","beach","island","forest","breakfast","lunch","dinner","cake","ice cream","juice","tea","coffee","sugar","name","time","day","week","month","year","hour","minute","money","price","phone","computer","camera","television","radio","music","song","game","family","home","room","bed","bath","kitchen","garden","floor","wall","party","holiday","present","letter","story","newspaper","magazine","country","language","weather","world","road","street","bridge","airport","photo","picture","map","ticket","key","umbrella","baggage","passport"],
             verbs: ["be","have","do","say","go","get","make","know","think","take","see","come","want","look","use","find","give","tell","work","call","try","ask","need","feel","become","leave","put","mean","keep","let","begin","seem","help","talk","turn","start","show","hear","play","run","move","like","live","believe","hold","bring","happen","write","provide","sit","stand","lose","pay","meet","include","continue","set","learn","change","lead","understand","watch","follow","stop","create","speak","read","allow","add","spend","grow","open","walk","win","offer","remember","love","consider","appear","buy","wait","serve","die","send","expect","build","stay","fall","cut","reach","kill","remain","suggest","raise","pass","sell","require","report","decide","pull"],
@@ -61,8 +60,7 @@
         const WORD_MEANING = {
             "apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"认为","take":"拿","see":"看见","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意思是","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转动","start":"开始","show":"展示","hear":"听见","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"居住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付款","meet":"遇见","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"阅读","allow":"允许","add":"添加","spend":"花费","grow":"生长","open":"打开","walk":"步行","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"要求","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一","last":"最后","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"正确的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够","happy":"快乐的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","open":"开着的","closed":"关着的","free":"自由的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"单独的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"兴奋的","funny":"滑稽的","kind":"友好的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"
         };
-
-        // 语法、口语种子 (保持原有，此处省略)
+        // ===== 语法种子 =====
         let GRAMMAR_CORE = [
             { question: "I ___ a student.", options: ["am", "is", "are", "be"], correct: 0 },
             { question: "She ___ my sister.", options: ["am", "is", "are", "be"], correct: 1 },
@@ -156,7 +154,6 @@
             { question: "___ dog is very friendly.", options: ["They", "Them", "Their", "Theirs"], correct: 2 }
         ];
         while (GRAMMAR_CORE.length < 200) GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
-
         let SPEAKING_CORE = [
             { scenario: "早上遇到同学，你应该说：", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1 },
             { scenario: "你想知道时间，可以问：", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0 },
@@ -282,20 +279,16 @@
             return voices.find(v => v.lang.startsWith('en-US')) || voices[0] || null;
         }
 
-        // 最可靠的单句朗读，手机点击事件直接调用
         function speakNow(text) {
             if (!('speechSynthesis' in window) || !text) return;
             window.speechSynthesis.cancel();
             const voice = getBestAmericanVoice();
             const u = new SpeechSynthesisUtterance(text);
             if (voice) u.voice = voice;
-            u.lang = 'en-US';
-            u.rate = 0.9;
-            u.pitch = 1.0;
+            u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1.0;
             window.speechSynthesis.speak(u);
         }
 
-        // 首次触摸激活
         function activateVoice() {
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
@@ -553,7 +546,6 @@
             container.innerHTML = `<div class="dino">😢</div><h2>生命耗尽</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(state.totalStars)}</p><button class="btn" onclick="game.restart()">重新挑战</button>`;
         }
 
-        // 手机端关键修改：只朗读正确答案，直接触发
         function readScenario() {
             const q = state.questions[state.currentIndex];
             if (q && q.type === 'speaking') {
