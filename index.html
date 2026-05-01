@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>KET 全能冒险岛 · 最终修复版</title>
+    <title>KET 全能冒险岛 · 修复版</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -32,10 +32,12 @@
         .option-btn.correct { background: #2ecc71; border-color: #27ae60; color: white; }
         .option-btn.wrong { background: #e74c3c; border-color: #c0392b; color: white; }
         .option-btn:disabled { pointer-events: none; opacity: 0.8; }
-        .feedback-msg { font-size: 1.2rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; }
+        .feedback-msg { font-size: 1rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; line-height: 1.5; padding: 8px; border-radius: 12px; }
+        .feedback-msg.explain { background: #eaf6ff; border: 2px solid #3498db; text-align: left; }
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
+        .sound-btn { background: #9b59b6; box-shadow: 0 5px 0 #6c3483; font-size: 1rem; padding: 10px 25px; }
         .world-card { background: #fff3cd; border-radius: 25px; padding: 15px; margin: 10px; cursor: pointer; transition: 0.2s; border: 3px solid #f39c12; font-weight: bold; display: inline-block; width: 28%; min-width: 100px; }
         .world-card:hover { background: #ffeaa7; transform: scale(1.03); }
         .world-icon { font-size: 2.5rem; }
@@ -43,13 +45,128 @@
         .daily-progress { font-size: 2rem; margin: 15px 0; }
         .goal-select { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
         .goal-btn { background: #2ecc71; color: white; border: none; border-radius: 20px; padding: 10px 18px; font-size: 1.1rem; cursor: pointer; }
-        @media (max-width: 500px) { .options { grid-template-columns: 1fr; } .world-card { width: 80%; } }
+        @media (max-width: 500px) { .options { grid-template-columns: 1fr; } .world-card { width: 80%; } .question-text { font-size: 1.3rem; } .option-btn { padding: 14px 10px; font-size: 1rem; } }
     </style>
 </head>
 <body>
 <div class="game-container" id="gameContainer"></div>
 <script>
     (function() {
+        // ===== 全局音频（修复手机无声问题）=====
+        let _audioCtx = null;
+        let _soundEnabled = false;
+        let _voicesLoaded = false;
+
+        function getAudioCtx() {
+            if (!_audioCtx) {
+                _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (_audioCtx.state === 'suspended') {
+                _audioCtx.resume();
+            }
+            return _audioCtx;
+        }
+
+        function unlockAudio() {
+            try {
+                const ctx = getAudioCtx();
+                // 创建一个静音的 buffer 播放来解锁
+                const buffer = ctx.createBuffer(1, 1, 22050);
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+                _soundEnabled = true;
+            } catch(e) {}
+        }
+
+        function unlockSpeech() {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance('');
+            u.volume = 0.01;
+            window.speechSynthesis.speak(u);
+            // 预加载语音列表
+            if (!_voicesLoaded) {
+                window.speechSynthesis.getVoices();
+                window.speechSynthesis.onvoiceschanged = function() {
+                    window.speechSynthesis.getVoices();
+                    _voicesLoaded = true;
+                };
+            }
+        }
+
+        function unlockAllSound() {
+            unlockAudio();
+            unlockSpeech();
+            _soundEnabled = true;
+        }
+
+        // 在所有用户交互时解锁音频
+        ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
+            document.addEventListener(evt, function onceHandler() {
+                unlockAllSound();
+            }, { once: true });
+        });
+        // 备用：每次交互都尝试 resume
+        document.addEventListener('touchstart', () => { try { if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume(); } catch(e){} }, { passive: true });
+        document.addEventListener('click', () => { try { if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume(); } catch(e){} }, { passive: true });
+
+        function playSound(type) {
+            try {
+                const ctx = getAudioCtx();
+                if (ctx.state === 'suspended') return; // 无法播放时静默
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                gain.gain.setValueAtTime(0.4, ctx.currentTime);
+                if (type === 'correct') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(523, ctx.currentTime);       // C5
+                    osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+                    osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2); // G5
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.4);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(150, ctx.currentTime + 0.3);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.35);
+                } else if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08);
+                    osc.start(ctx.currentTime);
+                    osc.stop(ctx.currentTime + 0.08);
+                }
+            } catch(e) {}
+        }
+
+        function getBestAmericanVoice() {
+            if (!('speechSynthesis' in window)) return null;
+            const voices = window.speechSynthesis.getVoices();
+            const preferred = ['Samantha', 'Alex', 'Microsoft Zira', 'Google US English', 'Karen', 'Nicky', 'Daniel'];
+            for (let name of preferred) {
+                const found = voices.find(v => v.name.includes(name) && v.lang.startsWith('en'));
+                if (found) return found;
+            }
+            return voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
+        }
+
+        function speakNow(text) {
+            if (!('speechSynthesis' in window) || !text) return;
+            window.speechSynthesis.cancel();
+            const voice = getBestAmericanVoice();
+            const u = new SpeechSynthesisUtterance(text);
+            if (voice) u.voice = voice;
+            u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
+            window.speechSynthesis.speak(u);
+        }
+
         // ===== 词汇库 =====
         const KET_LEXICON = {
             nouns: ["apple","banana","orange","grape","water","milk","bread","rice","chicken","fish","dog","cat","bird","rabbit","horse","sheep","cow","elephant","tiger","lion","book","pen","pencil","ruler","bag","desk","chair","table","door","window","car","bus","train","bicycle","plane","boat","taxi","motorbike","helicopter","house","school","park","shop","hospital","library","cinema","museum","market","mother","father","sister","brother","baby","friend","teacher","student","doctor","shirt","dress","shoes","hat","coat","socks","trousers","jacket","sweater","sun","moon","star","rain","snow","wind","cloud","flower","tree","grass","city","town","village","river","mountain","sea","beach","island","forest","breakfast","lunch","dinner","cake","ice cream","juice","tea","coffee","sugar","name","time","day","week","month","year","hour","minute","money","price","phone","computer","camera","television","radio","music","song","game","family","home","room","bed","bath","kitchen","garden","floor","wall","party","holiday","present","letter","story","newspaper","magazine","country","language","weather","world","road","street","bridge","airport","photo","picture","map","ticket","key","umbrella","baggage","passport"],
@@ -58,157 +175,160 @@
         };
         const ALL_WORDS = [...KET_LEXICON.nouns, ...KET_LEXICON.verbs, ...KET_LEXICON.adjectives];
         const WORD_MEANING = {
-            "apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"认为","take":"拿","see":"看见","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意思是","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转动","start":"开始","show":"展示","hear":"听见","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"居住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付款","meet":"遇见","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"阅读","allow":"允许","add":"添加","spend":"花费","grow":"生长","open":"打开","walk":"步行","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"要求","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一","last":"最后","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"正确的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够","happy":"快乐的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","open":"开着的","closed":"关着的","free":"自由的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"单独的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"兴奋的","funny":"滑稽的","kind":"友好的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"
+            "apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"想","take":"拿","see":"看","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意味着","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转","start":"开始","show":"展示","hear":"听到","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付钱","meet":"见面","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"读","allow":"允许","add":"添加","spend":"花费","grow":"成长","open":"打开","walk":"走路","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"需要","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一的","last":"最后的","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"对的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够的","happy":"开心的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","open":"开着的","closed":"关着的","free":"免费的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"独自的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"令人兴奋的","funny":"好笑的","kind":"善良的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"
         };
-        // ===== 语法种子 =====
+
+        // ===== 语法种子（带详细讲解）=====
         let GRAMMAR_CORE = [
-            { question: "I ___ a student.", options: ["am", "is", "are", "be"], correct: 0 },
-            { question: "She ___ my sister.", options: ["am", "is", "are", "be"], correct: 1 },
-            { question: "They ___ at home.", options: ["am", "is", "are", "be"], correct: 2 },
-            { question: "My mother ___ a doctor.", options: ["am", "is", "are", "be"], correct: 1 },
-            { question: "We ___ happy.", options: ["am", "is", "are", "be"], correct: 2 },
-            { question: "It ___ a big house.", options: ["am", "is", "are", "be"], correct: 1 },
-            { question: "I ___ at the park yesterday.", options: ["was", "were", "am", "are"], correct: 0 },
-            { question: "They ___ late for school.", options: ["was", "were", "is", "are"], correct: 1 },
-            { question: "She ___ very tired last night.", options: ["was", "were", "is", "are"], correct: 0 },
-            { question: "Look! The cat ___ on the chair.", options: ["sleep", "sleeps", "is sleeping", "sleeping"], correct: 2 },
-            { question: "I ___ my homework now.", options: ["do", "does", "am doing", "did"], correct: 2 },
-            { question: "They ___ football at the moment.", options: ["play", "are playing", "played", "plays"], correct: 1 },
-            { question: "Listen! Someone ___ .", options: ["sing", "sings", "is singing", "sang"], correct: 2 },
-            { question: "He ___ to school by bus.", options: ["go", "goes", "going", "gone"], correct: 1 },
-            { question: "My father ___ coffee every morning.", options: ["drink", "drinks", "drinking", "drank"], correct: 1 },
-            { question: "She ___ English very well.", options: ["speak", "speaks", "spoke", "speaking"], correct: 1 },
-            { question: "The sun ___ in the east.", options: ["rise", "rises", "rose", "rising"], correct: 1 },
-            { question: "I ___ a new bike last week.", options: ["buy", "buys", "bought", "buyed"], correct: 2 },
-            { question: "They ___ to the zoo yesterday.", options: ["go", "goes", "went", "going"], correct: 2 },
-            { question: "She ___ her key at school.", options: ["lose", "loses", "lost", "losing"], correct: 2 },
-            { question: "We ___ a great film last night.", options: ["see", "saw", "seen", "seeing"], correct: 1 },
-            { question: "I ___ visit my grandma tomorrow.", options: ["will", "am", "do", "have"], correct: 0 },
-            { question: "We ___ going to have a picnic.", options: ["is", "am", "are", "be"], correct: 2 },
-            { question: "She ___ be 10 next month.", options: ["will", "is", "does", "has"], correct: 0 },
-            { question: "You ___ eat too much candy.", options: ["should", "shouldn't", "must", "can"], correct: 1 },
-            { question: "___ I open the window?", options: ["Must", "Can", "Should", "Would"], correct: 1 },
-            { question: "You ___ wear a seat belt in the car.", options: ["must", "can", "could", "may"], correct: 0 },
-            { question: "He ___ swim when he was five.", options: ["can", "could", "must", "should"], correct: 1 },
-            { question: "___ you like some tea?", options: ["Can", "Must", "Would", "Should"], correct: 2 },
-            { question: "My sister is ___ than me.", options: ["tall", "taller", "tallest", "more tall"], correct: 1 },
-            { question: "This is the ___ book I have ever read.", options: ["good", "better", "best", "well"], correct: 2 },
-            { question: "Summer is ___ than winter.", options: ["hot", "hotter", "hottest", "more hot"], correct: 1 },
-            { question: "Elephants are ___ than dogs.", options: ["big", "bigger", "biggest", "more big"], correct: 1 },
-            { question: "He runs ___ in his class.", options: ["fast", "faster", "fastest", "more fast"], correct: 2 },
-            { question: "___ is my best friend.", options: ["He", "Him", "His", "He's"], correct: 0 },
-            { question: "This bag is ___ .", options: ["I", "me", "my", "mine"], correct: 3 },
-            { question: "___ car is blue.", options: ["They", "Them", "Their", "Theirs"], correct: 2 },
-            { question: "Please give ___ the book.", options: ["I", "me", "my", "mine"], correct: 1 },
-            { question: "I have ___ apple.", options: ["a", "an", "the", "-"], correct: 1 },
-            { question: "___ moon is very bright tonight.", options: ["A", "An", "The", "-"], correct: 2 },
-            { question: "She is ___ best student.", options: ["a", "an", "the", "-"], correct: 2 },
-            { question: "I usually get up ___ 7 o'clock.", options: ["in", "on", "at", "for"], correct: 2 },
-            { question: "My birthday is ___ May.", options: ["in", "on", "at", "for"], correct: 0 },
-            { question: "Let's meet ___ the park.", options: ["in", "on", "at", "to"], correct: 2 },
-            { question: "He goes to work ___ car.", options: ["by", "on", "with", "in"], correct: 0 },
-            { question: "The cat is ___ the table.", options: ["in", "on", "under", "at"], correct: 1 },
-            { question: "___ is your name?", options: ["Who", "What", "Where", "When"], correct: 1 },
-            { question: "___ do you live?", options: ["Who", "What", "Where", "Why"], correct: 2 },
-            { question: "___ are you late?", options: ["Who", "What", "Where", "Why"], correct: 3 },
-            { question: "___ do you go to school?", options: ["How", "What", "Where", "When"], correct: 0 },
-            { question: "There are ___ apples in the basket.", options: ["some", "any", "a", "an"], correct: 0 },
-            { question: "Is there ___ milk?", options: ["some", "any", "a", "an"], correct: 1 },
-            { question: "I don't have ___ money.", options: ["some", "any", "a", "an"], correct: 1 },
-            { question: "How ___ students are there?", options: ["many", "much", "old", "long"], correct: 0 },
-            { question: "How ___ water do you drink?", options: ["many", "much", "old", "long"], correct: 1 },
-            { question: "There ___ a cat under the bed.", options: ["is", "are", "be", "am"], correct: 0 },
-            { question: "There ___ two pens on the desk.", options: ["is", "are", "be", "am"], correct: 1 },
-            { question: "___ loud! The baby is sleeping.", options: ["Don't be", "Be", "Not be", "Is"], correct: 0 },
-            { question: "___ your hands before meals.", options: ["Wash", "Washes", "Washing", "To wash"], correct: 0 },
-            { question: "Let's ___ to the library.", options: ["go", "goes", "going", "went"], correct: 0 },
-            { question: "I like apples ___ oranges.", options: ["and", "but", "or", "so"], correct: 0 },
-            { question: "She is short ___ she can run fast.", options: ["and", "but", "or", "so"], correct: 1 },
-            { question: "Do you want tea ___ coffee?", options: ["and", "but", "or", "so"], correct: 2 },
-            { question: "It was raining ___ we stayed home.", options: ["and", "but", "or", "so"], correct: 3 },
-            { question: "If it ___, I will take an umbrella.", options: ["rain", "rains", "rained", "raining"], correct: 1 },
-            { question: "I will call you when I ___ home.", options: ["get", "will get", "gets", "got"], correct: 0 },
-            { question: "I have ___ my lunch.", options: ["finish", "finishes", "finished", "finishing"], correct: 2 },
-            { question: "She has ___ to London twice.", options: ["go", "went", "gone", "been"], correct: 3 }
+            { question: "I ___ a student.", options: ["am", "is", "are", "be"], correct: 0, explanation: "be动词搭配：I 搭配 am" },
+            { question: "She ___ my sister.", options: ["am", "is", "are", "be"], correct: 1, explanation: "be动词搭配：She/He/It 搭配 is" },
+            { question: "They ___ at home.", options: ["am", "is", "are", "be"], correct: 2, explanation: "be动词搭配：They/We/You 搭配 are" },
+            { question: "My mother ___ a doctor.", options: ["am", "is", "are", "be"], correct: 1, explanation: "be动词搭配：My mother 是第三人称单数，搭配 is" },
+            { question: "We ___ happy.", options: ["am", "is", "are", "be"], correct: 2, explanation: "be动词搭配：We 搭配 are" },
+            { question: "It ___ a big house.", options: ["am", "is", "are", "be"], correct: 1, explanation: "be动词搭配：It 搭配 is" },
+            { question: "I ___ at the park yesterday.", options: ["was", "were", "am", "are"], correct: 0, explanation: "过去时be动词：I/He/She/It 用 was" },
+            { question: "They ___ late for school.", options: ["was", "were", "is", "are"], correct: 1, explanation: "过去时be动词：They/We/You 用 were" },
+            { question: "She ___ very tired last night.", options: ["was", "were", "is", "are"], correct: 0, explanation: "过去时be动词：She 是第三人称单数，用 was" },
+            { question: "Look! The cat ___ on the chair.", options: ["sleep", "sleeps", "is sleeping", "sleeping"], correct: 2, explanation: "现在进行时：Look! 提示正在发生，用 am/is/are + 动词ing" },
+            { question: "I ___ my homework now.", options: ["do", "does", "am doing", "did"], correct: 2, explanation: "现在进行时：now 提示正在做，用 am/is/are + 动词ing" },
+            { question: "They ___ football at the moment.", options: ["play", "are playing", "played", "plays"], correct: 1, explanation: "现在进行时：at the moment 提示此刻，用 be + 动词ing" },
+            { question: "Listen! Someone ___ .", options: ["sing", "sings", "is singing", "sang"], correct: 2, explanation: "现在进行时：Listen! 提示正在发生，用 be + 动词ing" },
+            { question: "He ___ to school by bus.", options: ["go", "goes", "going", "gone"], correct: 1, explanation: "一般现在时：He 是第三人称单数，动词加 s/es，go → goes" },
+            { question: "My father ___ coffee every morning.", options: ["drink", "drinks", "drinking", "drank"], correct: 1, explanation: "一般现在时：My father 是第三人称单数，动词加 s，drink → drinks" },
+            { question: "She ___ English very well.", options: ["speak", "speaks", "spoke", "speaking"], correct: 1, explanation: "一般现在时：She 是第三人称单数，动词加 s，speak → speaks" },
+            { question: "The sun ___ in the east.", options: ["rise", "rises", "rose", "rising"], correct: 1, explanation: "一般现在时：客观真理/自然规律，第三人称单数加 s，rise → rises" },
+            { question: "I ___ a new bike last week.", options: ["buy", "buys", "bought", "buyed"], correct: 2, explanation: "一般过去时：last week 表示过去，buy → bought（不规则变化）" },
+            { question: "They ___ to the zoo yesterday.", options: ["go", "goes", "went", "going"], correct: 2, explanation: "一般过去时：yesterday 表示过去，go → went（不规则变化）" },
+            { question: "She ___ her key at school.", options: ["lose", "loses", "lost", "losing"], correct: 2, explanation: "一般过去时：lose → lost（不规则变化）" },
+            { question: "We ___ a great film last night.", options: ["see", "saw", "seen", "seeing"], correct: 1, explanation: "一般过去时：last night 表示过去，see → saw（不规则变化）" },
+            { question: "I ___ visit my grandma tomorrow.", options: ["will", "am", "do", "have"], correct: 0, explanation: "一般将来时：tomorrow 表示将来，用 will + 动词原形" },
+            { question: "We ___ going to have a picnic.", options: ["is", "am", "are", "be"], correct: 2, explanation: "be going to 结构：We 搭配 are，are going to 表示打算做某事" },
+            { question: "She ___ be 10 next month.", options: ["will", "is", "does", "has"], correct: 0, explanation: "一般将来时：next month 表示将来，用 will + 动词原形" },
+            { question: "You ___ eat too much candy.", options: ["should", "shouldn't", "must", "can"], correct: 1, explanation: "情态动词：shouldn't 表示不应该，用于劝告别人不要做某事" },
+            { question: "___ I open the window?", options: ["Must", "Can", "Should", "Would"], correct: 1, explanation: "Can I...? 用于请求许可，表示'我可以……吗？'" },
+            { question: "You ___ wear a seat belt in the car.", options: ["must", "can", "could", "may"], correct: 0, explanation: "must 表示必须，用于规定或义务" },
+            { question: "He ___ swim when he was five.", options: ["can", "could", "must", "should"], correct: 1, explanation: "could 是 can 的过去式，表示过去的能力" },
+            { question: "___ you like some tea?", options: ["Can", "Must", "Would", "Should"], correct: 2, explanation: "Would you like...? 是礼貌地提出邀请，表示'你想要……吗？'" },
+            { question: "My sister is ___ than me.", options: ["tall", "taller", "tallest", "more tall"], correct: 1, explanation: "比较级：两者比较用比较级，tall → taller（短形容词加 er）" },
+            { question: "This is the ___ book I have ever read.", options: ["good", "better", "best", "well"], correct: 2, explanation: "最高级：三者以上比较用最高级，good → best（不规则变化），前加 the" },
+            { question: "Summer is ___ than winter.", options: ["hot", "hotter", "hottest", "more hot"], correct: 1, explanation: "比较级：两者比较用比较级，hot → hotter（双写末字母加 er）" },
+            { question: "Elephants are ___ than dogs.", options: ["big", "bigger", "biggest", "more big"], correct: 1, explanation: "比较级：两者比较用比较级，big → bigger（双写末字母加 er）" },
+            { question: "He runs ___ in his class.", options: ["fast", "faster", "fastest", "more fast"], correct: 2, explanation: "最高级：三者以上比较用最高级，fast → fastest，前加 the" },
+            { question: "___ is my best friend.", options: ["He", "Him", "His", "He's"], correct: 0, explanation: "人称代词主格：作主语用主格 He，宾格 Him 作宾语" },
+            { question: "This bag is ___ .", options: ["I", "me", "my", "mine"], correct: 3, explanation: "名词性物主代词：mine = my bag，单独使用，后面不跟名词" },
+            { question: "___ car is blue.", options: ["They", "Them", "Their", "Theirs"], correct: 2, explanation: "形容词性物主代词：Their 修饰名词 car，放在名词前面" },
+            { question: "Please give ___ the book.", options: ["I", "me", "my", "mine"], correct: 1, explanation: "人称代词宾格：作宾语（动词后）用宾格 me" },
+            { question: "I have ___ apple.", options: ["a", "an", "the", "-"], correct: 1, explanation: "冠词：apple 以元音音素开头，用 an 不用 a" },
+            { question: "___ moon is very bright tonight.", options: ["A", "An", "The", "-"], correct: 2, explanation: "定冠词 the：世上独一无二的事物（月亮、太阳等）前用 the" },
+            { question: "She is ___ best student.", options: ["a", "an", "the", "-"], correct: 2, explanation: "最高级前面要加 the：the best student" },
+            { question: "I usually get up ___ 7 o'clock.", options: ["in", "on", "at", "for"], correct: 2, explanation: "时间介词：at + 具体时刻（at 7 o'clock），in + 月/年/季，on + 日期/星期" },
+            { question: "My birthday is ___ May.", options: ["in", "on", "at", "for"], correct: 0, explanation: "时间介词：in + 月份/年份/季节（in May）" },
+            { question: "Let's meet ___ the park.", options: ["in", "on", "at", "to"], correct: 2, explanation: "地点介词：at + 小地点（at the park），in + 大地点/内部" },
+            { question: "He goes to work ___ car.", options: ["by", "on", "with", "in"], correct: 0, explanation: "交通方式：by + 交通工具，表示'乘坐……'，不加冠词" },
+            { question: "The cat is ___ the table.", options: ["in", "on", "under", "at"], correct: 1, explanation: "方位介词：on 表示在……上面（与表面接触）" },
+            { question: "___ is your name?", options: ["Who", "What", "Where", "When"], correct: 1, explanation: "疑问词：What 问'什么'，用于询问名字、事物" },
+            { question: "___ do you live?", options: ["Who", "What", "Where", "When"], correct: 2, explanation: "疑问词：Where 问'哪里'，用于询问地点" },
+            { question: "___ are you late?", options: ["Who", "What", "Where", "Why"], correct: 3, explanation: "疑问词：Why 问'为什么'，用于询问原因" },
+            { question: "___ do you go to school?", options: ["How", "What", "Where", "When"], correct: 0, explanation: "疑问词：How 问'怎样/如何'，用于询问方式" },
+            { question: "There are ___ apples in the basket.", options: ["some", "any", "a", "an"], correct: 0, explanation: "some/any：肯定句中用 some，否定句和疑问句中用 any" },
+            { question: "Is there ___ milk?", options: ["some", "any", "a", "an"], correct: 1, explanation: "some/any：疑问句中用 any" },
+            { question: "I don't have ___ money.", options: ["some", "any", "a", "an"], correct: 1, explanation: "some/any：否定句中用 any" },
+            { question: "How ___ students are there?", options: ["many", "much", "old", "long"], correct: 0, explanation: "How many + 可数名词复数，How much + 不可数名词" },
+            { question: "How ___ water do you drink?", options: ["many", "much", "old", "long"], correct: 1, explanation: "How much + 不可数名词，water 是不可数名词" },
+            { question: "There ___ a cat under the bed.", options: ["is", "are", "be", "am"], correct: 0, explanation: "There be 句型：就近原则，a cat 是单数，用 is" },
+            { question: "There ___ two pens on the desk.", options: ["is", "are", "be", "am"], correct: 1, explanation: "There be 句型：就近原则，two pens 是复数，用 are" },
+            { question: "___ loud! The baby is sleeping.", options: ["Don't be", "Be", "Not be", "Is"], correct: 0, explanation: "否定祈使句：Don't + 动词原形，表示'不要……'" },
+            { question: "___ your hands before meals.", options: ["Wash", "Washes", "Washing", "To wash"], correct: 0, explanation: "祈使句：直接用动词原形开头，表示命令或建议" },
+            { question: "Let's ___ to the library.", options: ["go", "goes", "going", "went"], correct: 0, explanation: "Let's + 动词原形，表示建议'让我们……'" },
+            { question: "I like apples ___ oranges.", options: ["and", "but", "or", "so"], correct: 0, explanation: "连词 and：表示并列，连接两个相同的事物" },
+            { question: "She is short ___ she can run fast.", options: ["and", "but", "or", "so"], correct: 1, explanation: "连词 but：表示转折，前后意思相反" },
+            { question: "Do you want tea ___ coffee?", options: ["and", "but", "or", "so"], correct: 2, explanation: "连词 or：表示选择，'还是'，用于疑问句" },
+            { question: "It was raining ___ we stayed home.", options: ["and", "but", "or", "so"], correct: 3, explanation: "连词 so：表示因果，'所以'" },
+            { question: "If it ___, I will take an umbrella.", options: ["rain", "rains", "rained", "raining"], correct: 1, explanation: "条件状语从句：if 引导的从句用一般现在时表将来，it 是第三人称单数用 rains" },
+            { question: "I will call you when I ___ home.", options: ["get", "will get", "gets", "got"], correct: 0, explanation: "时间状语从句：when 引导的从句用一般现在时表将来，I 用动词原形 get" },
+            { question: "I have ___ my lunch.", options: ["finish", "finishes", "finished", "finishing"], correct: 2, explanation: "现在完成时：have/has + 过去分词，finish 的过去分词是 finished" },
+            { question: "She has ___ to London twice.", options: ["go", "went", "gone", "been"], correct: 3, explanation: "现在完成时：have/has been to 表示去过某地（已回来），been 是 be 的过去分词" }
         ];
         const extraGram = [
-            { question: "My brother ___ playing video games.", options: ["love", "loves", "loving", "loved"], correct: 1 },
-            { question: "___ you go to the party tomorrow?", options: ["Do", "Will", "Are", "Have"], correct: 1 },
-            { question: "There aren't ___ flowers in the garden.", options: ["some", "any", "a", "an"], correct: 1 },
-            { question: "This is ___ interesting story.", options: ["a", "an", "the", "-"], correct: 1 },
-            { question: "She is the girl ___ won the prize.", options: ["which", "who", "what", "whose"], correct: 1 },
-            { question: "He runs ___ than his friend.", options: ["quickly", "more quickly", "quicklier", "most quickly"], correct: 1 },
-            { question: "I ___ my homework yet.", options: ["didn't finish", "haven't finished", "doesn't finish", "don't finish"], correct: 1 },
-            { question: "Would you like ___ orange juice?", options: ["any", "some", "a", "many"], correct: 1 },
-            { question: "Let him ___ it.", options: ["do", "does", "doing", "did"], correct: 0 },
-            { question: "I'm looking forward ___ you.", options: ["to meet", "to meeting", "for meeting", "at meeting"], correct: 1 },
-            { question: "She ___ TV every evening.", options: ["watch", "watches", "watching", "watched"], correct: 1 },
-            { question: "We ___ to the beach last summer.", options: ["go", "goes", "went", "gone"], correct: 2 },
-            { question: "He is ___ than his brother.", options: ["strong", "stronger", "strongest", "more strong"], correct: 1 },
-            { question: "I have ___ been to Paris.", options: ["ever", "never", "yet", "already"], correct: 1 },
-            { question: "She ___ a letter now.", options: ["write", "writes", "is writing", "wrote"], correct: 2 },
-            { question: "___ is your favourite colour?", options: ["Who", "What", "Where", "When"], correct: 1 },
-            { question: "The children ___ playing outside.", options: ["is", "am", "are", "be"], correct: 2 },
-            { question: "I can't find my keys. Have you seen ___?", options: ["it", "them", "they", "their"], correct: 1 },
-            { question: "He is the ___ player in the team.", options: ["good", "better", "best", "well"], correct: 2 },
-            { question: "___ dog is very friendly.", options: ["They", "Them", "Their", "Theirs"], correct: 2 }
+            { question: "My brother ___ playing video games.", options: ["love", "loves", "loving", "loved"], correct: 1, explanation: "一般现在时：My brother 是第三人称单数，动词加 s，love → loves" },
+            { question: "___ you go to the party tomorrow?", options: ["Do", "Will", "Are", "Have"], correct: 1, explanation: "一般将来时：tomorrow 表示将来，用 Will + 主语 + 动词原形" },
+            { question: "There aren't ___ flowers in the garden.", options: ["some", "any", "a", "an"], correct: 1, explanation: "some/any：否定句中用 any，aren't = are not" },
+            { question: "This is ___ interesting story.", options: ["a", "an", "the", "-"], correct: 1, explanation: "冠词：interesting 以元音音素 /ɪ/ 开头，用 an" },
+            { question: "She is the girl ___ won the prize.", options: ["which", "who", "what", "whose"], correct: 1, explanation: "定语从句：who 引导定语从句修饰人，which 修饰物" },
+            { question: "He runs ___ than his friend.", options: ["quickly", "more quickly", "quicklier", "most quickly"], correct: 1, explanation: "副词比较级：多音节副词前加 more，quickly → more quickly" },
+            { question: "I ___ my homework yet.", options: ["didn't finish", "haven't finished", "doesn't finish", "don't finish"], correct: 1, explanation: "现在完成时：yet 常与现在完成时否定连用，haven't + 过去分词" },
+            { question: "Would you like ___ orange juice?", options: ["any", "some", "a", "many"], correct: 1, explanation: "Would you like...? 是委婉邀请，用 some 不用 any" },
+            { question: "Let him ___ it.", options: ["do", "does", "doing", "did"], correct: 0, explanation: "Let + 宾语 + 动词原形，let him do" },
+            { question: "I'm looking forward ___ you.", options: ["to meet", "to meeting", "for meeting", "at meeting"], correct: 1, explanation: "look forward to 中 to 是介词，后接动名词 ing 形式" },
+            { question: "She ___ TV every evening.", options: ["watch", "watches", "watching", "watched"], correct: 1, explanation: "一般现在时：She 是第三人称单数，watch → watches（加 es）" },
+            { question: "We ___ to the beach last summer.", options: ["go", "goes", "went", "gone"], correct: 2, explanation: "一般过去时：last summer 表示过去，go → went（不规则变化）" },
+            { question: "He is ___ than his brother.", options: ["strong", "stronger", "strongest", "more strong"], correct: 1, explanation: "比较级：两者比较用比较级，strong → stronger（短形容词加 er）" },
+            { question: "I have ___ been to Paris.", options: ["ever", "never", "yet", "already"], correct: 1, explanation: "never 从不，与现在完成时连用，表示从未做过" },
+            { question: "She ___ a letter now.", options: ["write", "writes", "is writing", "wrote"], correct: 2, explanation: "现在进行时：now 提示正在做，用 is + 动词ing" },
+            { question: "___ is your favourite colour?", options: ["Who", "What", "Where", "When"], correct: 1, explanation: "疑问词：What 问'什么'，用于询问喜好" },
+            { question: "The children ___ playing outside.", options: ["is", "am", "are", "be"], correct: 2, explanation: "be动词：children 是 child 的复数，搭配 are" },
+            { question: "I can't find my keys. Have you seen ___?", options: ["it", "them", "they", "their"], correct: 1, explanation: "人称代词宾格：keys 是复数，用宾格 them" },
+            { question: "He is the ___ player in the team.", options: ["good", "better", "best", "well"], correct: 2, explanation: "最高级：三者以上比较用最高级，good → best（不规则变化），前加 the" },
+            { question: "___ dog is very friendly.", options: ["They", "Them", "Their", "Theirs"], correct: 2, explanation: "形容词性物主代词：Their 修饰名词 dog，放在名词前面" }
         ];
         while (GRAMMAR_CORE.length < 200) GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
+
+        // ===== 口语种子（带讲解）=====
         let SPEAKING_CORE = [
-            { scenario: "早上遇到同学，你应该说：", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1 },
-            { scenario: "你想知道时间，可以问：", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0 },
-            { scenario: "别人说 'Thank you'，你回答：", options: ["Sorry", "You're welcome", "Yes please", "No"], correct: 1 },
-            { scenario: "你想介绍朋友Tom，可以说：", options: ["I am Tom", "This is my friend Tom", "Tom is a boy", "His name Tom"], correct: 1 },
-            { scenario: "没听清楚时，可以礼貌地说：", options: ["What?", "Say again!", "Pardon?", "Speak!"], correct: 2 },
-            { scenario: "向妈妈要水，可以说：", options: ["Give me water!", "Can I have some water, please?", "Water now!", "I want water"], correct: 1 },
-            { scenario: "建议一起去游泳：", options: ["Let's go swimming.", "Swim now.", "You swim.", "I swim."], correct: 0 },
-            { scenario: "打电话找Tom，你说：", options: ["Where is Tom?", "Hello, this is [name]. May I speak to Tom?", "I want Tom.", "Tom here?"], correct: 1 },
-            { scenario: "别人问 'How are you?'，你答：", options: ["I'm 10.", "I'm fine, thanks.", "How are you?", "Yes, please."], correct: 1 },
-            { scenario: "想知道英文怎么说，问：", options: ["What this?", "How do you say this in English?", "Say English.", "This English?"], correct: 1 },
-            { scenario: "在餐厅点餐：", options: ["I'm hungry.", "I'd like a sandwich, please.", "Food, please.", "Yes, I like."], correct: 1 },
-            { scenario: "问路去图书馆：", options: ["Where is the library?", "Library now.", "I need library.", "Take me to library."], correct: 0 },
-            { scenario: "邀请朋友参加生日派对：", options: ["Come to my party?", "Would you like to come to my birthday party?", "Party, come.", "My birthday, come."], correct: 1 },
-            { scenario: "弄丢了东西寻求帮助：", options: ["I lost! Help!", "I lost my bag. Can you help me?", "My bag gone.", "Find my bag."], correct: 1 },
-            { scenario: "问对方喜欢的颜色：", options: ["What colour you like?", "What colour do you like?", "You like colour?", "Colour you like?"], correct: 1 },
-            { scenario: "告诉别人你每周日踢足球：", options: ["I play football on Sundays.", "Football Sundays play.", "On Sundays football.", "Play football Sundays."], correct: 0 },
-            { scenario: "询问价格：", options: ["How many?", "How much is it?", "Price now.", "Give price."], correct: 1 },
-            { scenario: "表达最喜欢的科目是科学：", options: ["My favourite subject is science.", "Science good.", "I like science good.", "Subject science best."], correct: 0 },
-            { scenario: "与朋友告别：", options: ["Hello!", "Nice to meet you.", "See you later!", "How are you?"], correct: 2 },
-            { scenario: "请对方重复一遍：", options: ["Say again.", "Repeat, please.", "Could you say that again, please?", "Again."], correct: 2 },
-            { scenario: "在商店想试衣服：", options: ["Can I try this on?", "I wear it.", "Give me this.", "This clothes me."], correct: 0 },
-            { scenario: "问去公园的路：", options: ["Park where?", "Excuse me, how do I get to the park?", "Take me park.", "I want park."], correct: 1 },
-            { scenario: "建议周末看电影：", options: ["Let's see a film at the weekend.", "Weekend film see.", "Film weekend.", "See film weekend."], correct: 0 },
-            { scenario: "告诉别人你有宠物猫：", options: ["I have a pet cat.", "Cat my pet.", "My cat is pet.", "Pet cat I have."], correct: 0 },
-            { scenario: "别人借橡皮：", options: ["Here you are.", "Go away.", "No give.", "It's mine."], correct: 0 }
+            { scenario: "早上遇到同学，你应该说：", options: ["Goodbye!", "Good morning!", "Good night!", "See you!"], correct: 1, explanation: "Good morning! 是早上问候的标准用语，Goodbye 是告别，Good night 是晚上告别" },
+            { scenario: "你想知道时间，可以问：", options: ["What time is it?", "How are you?", "Where is it?", "Who are you?"], correct: 0, explanation: "What time is it? 是询问时间的标准说法" },
+            { scenario: "别人说 'Thank you'，你回答：", options: ["Sorry", "You're welcome", "Yes please", "No"], correct: 1, explanation: "You're welcome 是回答 Thank you 的礼貌用语，意为'不客气'" },
+            { scenario: "你想介绍朋友Tom，可以说：", options: ["I am Tom", "This is my friend Tom", "Tom is a boy", "His name Tom"], correct: 1, explanation: "This is... 是介绍他人的标准句型，不能说 I am（那是自我介绍）" },
+            { scenario: "没听清楚时，可以礼貌地说：", options: ["What?", "Say again!", "Pardon?", "Speak!"], correct: 2, explanation: "Pardon? 是礼貌地请对方重复，比 What? 更客气" },
+            { scenario: "向妈妈要水，可以说：", options: ["Give me water!", "Can I have some water, please?", "Water now!", "I want water"], correct: 1, explanation: "Can I have... please? 是礼貌请求的标准句型" },
+            { scenario: "建议一起去游泳：", options: ["Let's go swimming.", "Swim now.", "You swim.", "I swim."], correct: 0, explanation: "Let's + 动词原形 是提出建议的标准句型" },
+            { scenario: "打电话找Tom，你说：", options: ["Where is Tom?", "Hello, this is [name]. May I speak to Tom?", "I want Tom.", "Tom here?"], correct: 1, explanation: "电话中自我介绍用 This is...，不用 I am...；请找人用 May I speak to...?" },
+            { scenario: "别人问 'How are you?'，你答：", options: ["I'm 10.", "I'm fine, thanks.", "How are you?", "Yes, please."], correct: 1, explanation: "How are you? 问的是你好吗，回答 I'm fine, thanks. 是标准回应" },
+            { scenario: "想知道英文怎么说，问：", options: ["What this?", "How do you say this in English?", "Say English.", "This English?"], correct: 1, explanation: "How do you say... in English? 是询问英文表达的标准说法" },
+            { scenario: "在餐厅点餐：", options: ["I'm hungry.", "I'd like a sandwich, please.", "Food, please.", "Yes, I like."], correct: 1, explanation: "I'd like... please. 是在餐厅点餐的礼貌说法" },
+            { scenario: "问路去图书馆：", options: ["Where is the library?", "Library now.", "I need library.", "Take me to library."], correct: 0, explanation: "Where is...? 是问路的标准句型" },
+            { scenario: "邀请朋友参加生日派对：", options: ["Come to my party?", "Would you like to come to my birthday party?", "Party, come.", "My birthday, come."], correct: 1, explanation: "Would you like to...? 是礼貌邀请的标准句型" },
+            { scenario: "弄丢了东西寻求帮助：", options: ["I lost! Help!", "I lost my bag. Can you help me?", "My bag gone.", "Find my bag."], correct: 1, explanation: "I lost... Can you help me? 是寻求帮助的礼貌表达" },
+            { scenario: "问对方喜欢的颜色：", options: ["What colour you like?", "What colour do you like?", "You like colour?", "Colour you like?"], correct: 1, explanation: "What colour do you like? 是询问喜好的标准疑问句，需要助动词 do" },
+            { scenario: "告诉别人你每周日踢足球：", options: ["I play football on Sundays.", "Football Sundays play.", "On Sundays football.", "Play football Sundays."], correct: 0, explanation: "I + 动词原形 + on + 星期几，表示经常做的事" },
+            { scenario: "询问价格：", options: ["How many?", "How much is it?", "Price now.", "Give price."], correct: 1, explanation: "How much is it? 是询问价格的标准说法" },
+            { scenario: "表达最喜欢的科目是科学：", options: ["My favourite subject is science.", "Science good.", "I like science good.", "Subject science best."], correct: 0, explanation: "My favourite... is... 是表达最喜欢的标准句型" },
+            { scenario: "与朋友告别：", options: ["Hello!", "Nice to meet you.", "See you later!", "How are you?"], correct: 2, explanation: "See you later! 是告别的常用说法，Hello 是问候" },
+            { scenario: "请对方重复一遍：", options: ["Say again.", "Repeat, please.", "Could you say that again, please?", "Again."], correct: 2, explanation: "Could you say that again, please? 是最礼貌地请人重复的说法" },
+            { scenario: "在商店想试衣服：", options: ["Can I try this on?", "I wear it.", "Give me this.", "This clothes me."], correct: 0, explanation: "Can I try this on? 是请求试穿的标准说法" },
+            { scenario: "问去公园的路：", options: ["Park where?", "Excuse me, how do I get to the park?", "Take me park.", "I want park."], correct: 1, explanation: "Excuse me, how do I get to...? 是礼貌问路的标准说法" },
+            { scenario: "建议周末看电影：", options: ["Let's see a film at the weekend.", "Weekend film see.", "Film weekend.", "See film weekend."], correct: 0, explanation: "Let's + 动词原形 + at the weekend 是提出周末建议的说法" },
+            { scenario: "告诉别人你有宠物猫：", options: ["I have a pet cat.", "Cat my pet.", "My cat is pet.", "Pet cat I have."], correct: 0, explanation: "I have a... 是表达拥有某物的标准说法" },
+            { scenario: "别人借橡皮：", options: ["Here you are.", "Go away.", "No give.", "It's mine."], correct: 0, explanation: "Here you are. 是递给对方东西时的标准说法，意为'给你'" }
         ];
         const extraSp = [
-            { s: "问对方年龄：", o: ["How old are you?", "How age you?", "What age you?", "You are how old?"], c: 0 },
-            { s: "你生病去看医生：", o: ["I'm sick. I have a fever.", "I sick.", "Fever me.", "Doctor, help."], c: 0 },
-            { s: "表达你会游泳：", o: ["I can swim.", "I swim can.", "Can I swim.", "Swim I can."], c: 0 },
-            { s: "询问对方来自哪里：", o: ["Where you from?", "Where are you from?", "You from where?", "From where you?"], c: 1 },
-            { s: "祝福他人生日快乐：", o: ["Happy birthday to you!", "Birthday happy!", "Good birthday!", "Nice birthday!"], c: 0 },
-            { s: "告诉别人你饿了：", o: ["I'm hungry.", "I hungry.", "Hungry I.", "I has hungry."], c: 0 },
-            { s: "询问可以坐这里吗：", o: ["Can I sit here?", "Sit here?", "I sit here?", "Here sit?"], c: 0 },
-            { s: "夸赞别人的衣服：", o: ["Your dress is nice!", "Nice dress!", "Dress nice!", "You dress nice!"], c: 0 },
-            { s: "道歉：踩到别人的脚：", o: ["I'm sorry. Are you okay?", "Sorry not.", "You okay?", "My bad."], c: 0 },
-            { s: "请求允许看电视：", o: ["Can I watch TV?", "TV watch?", "I watch TV?", "Watch TV can?"], c: 0 },
-            { s: "说再见并希望能再见面：", o: ["Bye! See you soon.", "Bye!", "Goodbye.", "See you."], c: 0 },
-            { s: "询问对方有没有宠物：", o: ["Do you have a pet?", "Have you pet?", "You have pet?", "Pet you have?"], c: 0 },
-            { s: "说今天天气真好：", o: ["What a nice day!", "Nice day.", "Day nice.", "Today nice."], c: 0 },
-            { s: "主动提供帮助：", o: ["Can I help you?", "Help you?", "You want help?", "I help."], c: 0 },
-            { s: "说你对花粉过敏：", o: ["I'm allergic to pollen.", "Pollen allergic.", "Allergy pollen.", "Pollen bad."], c: 0 },
-            { s: "请让一下：", o: ["Excuse me, can I get past?", "Move!", "Let me go.", "Past me."], c: 0 },
-            { s: "在课上说听不懂：", o: ["I don't understand.", "Understand not.", "No understand.", "Don't understand."], c: 0 },
-            { s: "询问最喜欢的季节：", o: ["What's your favourite season?", "Favourite season?", "You like season?", "Season you like?"], c: 0 },
-            { s: "告诉别人你会弹钢琴：", o: ["I can play the piano.", "Piano play can.", "I play piano.", "Can play piano."], c: 0 },
-            { s: "建议对方喝点水：", o: ["You should drink some water.", "Drink water.", "Water drink.", "You drink water."], c: 0 },
-            { s: "说想去公园散步：", o: ["I'd like to go for a walk in the park.", "Park walk.", "Walk park.", "Go park walk."], c: 0 },
-            { s: "请人帮忙拿东西：", o: ["Could you pass me the salt, please?", "Salt.", "Give salt.", "Pass salt."], c: 0 },
-            { s: "听到好消息时回应：", o: ["That's great!", "Great!", "Wow!", "Nice!"], c: 0 }
+            { s: "问对方年龄：", o: ["How old are you?", "How age you?", "What age you?", "You are how old?"], c: 0, explanation: "How old are you? 是询问年龄的标准说法" },
+            { s: "你生病去看医生：", o: ["I'm sick. I have a fever.", "I sick.", "Fever me.", "Doctor, help."], c: 0, explanation: "I'm sick. I have a fever. 是向医生描述病情的完整表达" },
+            { s: "表达你会游泳：", o: ["I can swim.", "I swim can.", "Can I swim.", "Swim I can."], c: 0, explanation: "I can + 动词原形，表示'我会/能……'" },
+            { s: "询问对方来自哪里：", o: ["Where you from?", "Where are you from?", "You from where?", "From where you?"], c: 1, explanation: "Where are you from? 是询问来自哪里的标准说法，需要 be 动词" },
+            { s: "祝福他人生日快乐：", o: ["Happy birthday to you!", "Birthday happy!", "Good birthday!", "Nice birthday!"], c: 0, explanation: "Happy birthday to you! 是祝贺生日的固定表达" },
+            { s: "告诉别人你饿了：", o: ["I'm hungry.", "I hungry.", "Hungry I.", "I has hungry."], c: 0, explanation: "I'm + 形容词，表示'我……'，I'm hungry = 我饿了" },
+            { s: "询问可以坐这里吗：", o: ["Can I sit here?", "Sit here?", "I sit here?", "Here sit?"], c: 0, explanation: "Can I + 动词原形，是请求许可的标准句型" },
+            { s: "夸赞别人的衣服：", o: ["Your dress is nice!", "Nice dress!", "Dress nice!", "You dress nice!"], c: 0, explanation: "Your + 名词 + is nice! 是夸赞的完整礼貌表达" },
+            { s: "道歉：踩到别人的脚：", o: ["I'm sorry. Are you okay?", "Sorry not.", "You okay?", "My bad."], c: 0, explanation: "I'm sorry. Are you okay? 是道歉并关心对方的完整礼貌表达" },
+            { s: "请求允许看电视：", o: ["Can I watch TV?", "TV watch?", "I watch TV?", "Watch TV can?"], c: 0, explanation: "Can I + 动词原形，是请求许可的标准句型" },
+            { s: "说再见并希望能再见面：", o: ["Bye! See you soon.", "Bye!", "Goodbye.", "See you."], c: 0, explanation: "See you soon 表示希望能很快再见面，比单说 Bye 更热情" },
+            { s: "询问对方有没有宠物：", o: ["Do you have a pet?", "Have you pet?", "You have pet?", "Pet you have?"], c: 0, explanation: "Do you have...? 是询问拥有的标准一般疑问句" },
+            { s: "说今天天气真好：", o: ["What a nice day!", "Nice day.", "Day nice.", "Today nice."], c: 0, explanation: "What a nice day! 是感叹天气好的标准感叹句" },
+            { s: "主动提供帮助：", o: ["Can I help you?", "Help you?", "You want help?", "I help."], c: 0, explanation: "Can I help you? 是主动提供帮助的标准礼貌用语" },
+            { s: "说你对花粉过敏：", o: ["I'm allergic to pollen.", "Pollen allergic.", "Allergy pollen.", "Pollen bad."], c: 0, explanation: "I'm allergic to... 是表达过敏的标准说法" },
+            { s: "请让一下：", o: ["Excuse me, can I get past?", "Move!", "Let me go.", "Past me."], c: 0, explanation: "Excuse me, can I get past? 是礼貌地请人让路的标准说法" },
+            { s: "在课上说听不懂：", o: ["I don't understand.", "Understand not.", "No understand.", "Don't understand."], c: 0, explanation: "I don't understand. 是表达听不懂的完整标准说法" },
+            { s: "询问最喜欢的季节：", o: ["What's your favourite season?", "Favourite season?", "You like season?", "Season you like?"], c: 0, explanation: "What's your favourite...? 是询问喜好的标准疑问句" },
+            { s: "告诉别人你会弹钢琴：", o: ["I can play the piano.", "Piano play can.", "I play piano.", "Can play piano."], c: 0, explanation: "I can play the piano. play + 乐器名前要加 the" },
+            { s: "建议对方喝点水：", o: ["You should drink some water.", "Drink water.", "Water drink.", "You drink water."], c: 0, explanation: "You should + 动词原形，是给出建议的标准句型" },
+            { s: "说想去公园散步：", o: ["I'd like to go for a walk in the park.", "Park walk.", "Walk park.", "Go park walk."], c: 0, explanation: "I'd like to + 动词原形，是礼貌表达意愿的标准句型" },
+            { s: "请人帮忙拿东西：", o: ["Could you pass me the salt, please?", "Salt.", "Give salt.", "Pass salt."], c: 0, explanation: "Could you + 动词原形，是礼貌请求的标准句型" },
+            { s: "听到好消息时回应：", o: ["That's great!", "Great!", "Wow!", "Nice!"], c: 0, explanation: "That's great! 是听到好消息时的完整礼貌回应" }
         ];
         while (SPEAKING_CORE.length < 150) {
             const ex = extraSp[SPEAKING_CORE.length % extraSp.length];
-            SPEAKING_CORE.push({ scenario: ex.s, options: [...ex.o], correct: ex.c });
+            SPEAKING_CORE.push({ scenario: ex.s, options: [...ex.o], correct: ex.c, explanation: ex.explanation });
         }
 
         function shuffleArray(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
@@ -258,58 +378,18 @@
         function getStreak() { return parseInt(localStorage.getItem(STORAGE_KEY_STREAK)) || 0; }
         function setStreak(n) { localStorage.setItem(STORAGE_KEY_STREAK, n); }
 
-        function playSound(type) {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator(); const gain = ctx.createGain();
-                osc.connect(gain); gain.connect(ctx.destination);
-                if (type === 'correct') { osc.frequency.value = 600; gain.gain.value = 0.3; osc.start(); osc.stop(ctx.currentTime+0.15); }
-                else if (type === 'wrong') { osc.frequency.value = 250; gain.gain.value = 0.3; osc.start(); osc.stop(ctx.currentTime+0.3); }
-            } catch(e) {}
-        }
-
-        function getBestAmericanVoice() {
-            if (!('speechSynthesis' in window)) return null;
-            const voices = window.speechSynthesis.getVoices();
-            const preferred = ['Samantha', 'Alex', 'Microsoft Zira', 'Google US English', 'Karen'];
-            for (let name of preferred) {
-                const found = voices.find(v => v.name.includes(name) && v.lang.startsWith('en-US'));
-                if (found) return found;
-            }
-            return voices.find(v => v.lang.startsWith('en-US')) || voices[0] || null;
-        }
-
-        function speakNow(text) {
-            if (!('speechSynthesis' in window) || !text) return;
-            window.speechSynthesis.cancel();
-            const voice = getBestAmericanVoice();
-            const u = new SpeechSynthesisUtterance(text);
-            if (voice) u.voice = voice;
-            u.lang = 'en-US'; u.rate = 0.9; u.pitch = 1.0;
-            window.speechSynthesis.speak(u);
-        }
-
-        function activateVoice() {
-            if ('speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance('');
-                u.volume = 0;
-                window.speechSynthesis.speak(u);
-            }
-        }
-        document.addEventListener('touchstart', function onceTouch() {
-            activateVoice();
-            document.removeEventListener('touchstart', onceTouch);
-        }, { once: true });
-        document.addEventListener('click', function onceClick() {
-            activateVoice();
-            document.removeEventListener('click', onceClick);
-        }, { once: true });
-
         function getExplanation(q) {
-            if (q.type === 'vocab') return `正确答案是“${q.options[q.correct]}”。英文单词“${q.english}”的中文意思是“${q.options[q.correct]}”。`;
-            if (q.type === 'grammar') return `正确答案是“${q.options[q.correct]}”。请记住这个语法点。`;
-            return `正确答案是“${q.options[q.correct]}”。`;
+            const correctAnswer = q.options[q.correct];
+            if (q.type === 'vocab') return `正确答案是"${correctAnswer}"。英文单词"${q.english}"的中文意思是"${correctAnswer}"。`;
+            if (q.type === 'grammar') {
+                if (q.explanation) return `正确答案是"${correctAnswer}"。📖 ${q.explanation}`;
+                return `正确答案是"${correctAnswer}"。请记住这个语法点。`;
+            }
+            if (q.type === 'speaking') {
+                if (q.explanation) return `正确答案是"${correctAnswer}"。💬 ${q.explanation}`;
+                return `正确答案是"${correctAnswer}"。这是日常交际用语的正确表达方式。`;
+            }
+            return `正确答案是"${correctAnswer}"。`;
         }
 
         function generateVocabQuestions(count) {
@@ -344,9 +424,11 @@
 
         function renderStart() {
             const streak = getStreak();
+            const soundLabel = _soundEnabled ? '🔊 声音已开启' : '🔇 点击开启声音';
             container.innerHTML = `
                 <div class="dino">🦖</div><h1>KET 全能冒险岛</h1>
                 <p>📚词汇2000 | 📐语法1500 | 🗣️口语500</p>
+                <button class="btn sound-btn" onclick="game.toggleSound()">${soundLabel}</button>
                 <button class="btn start-btn" onclick="game.startDaily()">📅 每日打卡</button>
                 <button class="btn start-btn" style="background:#2980b9;box-shadow:0 5px 0 #1c5980;" onclick="game.startGame()">自由闯关 🚀</button>
                 <p style="margin-top:15px;">🔥 连续打卡 ${streak} 天</p>
@@ -399,15 +481,16 @@
             let html = '';
             if (q.type === 'vocab') html = `<div class="question-text">"${q.english}" 的中文意思是？</div>`;
             else if (q.type === 'grammar') html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
-            else html = `<div class="question-text">${q.scenario}</div><button class="btn" onclick="game.readScenario()">🔊 听发音</button>`;
+            else html = `<div class="question-text">${q.scenario}</div><button class="btn" onclick="game.readScenario()" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
             const opts = q.options.map((opt,i)=>`<button class="option-btn" id="opt${i}" onclick="game.answer(${i})">${opt}</button>`).join('');
+            const feedbackClass = state.feedback && state.feedback.includes('❌') ? 'feedback-msg explain' : 'feedback-msg';
             container.innerHTML = `
                 <div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${state.dailyMode?'📅每日打卡':({vocab:'🌳词汇',grammar:'⛰️语法',speaking:'🏘️口语'})[state.currentWorld]}</span><span class="score">⭐ ${state.stars}</span></div>
                 <div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div>
                 <div class="timer">⏳ ${state.timeLeft}</div>
                 <div class="question-area">${html}</div>
                 <div class="options">${opts}</div>
-                <div class="feedback-msg">${state.feedback||''}</div>`;
+                <div class="${feedbackClass}">${state.feedback||''}</div>`;
         }
 
         function renderResult() {
@@ -476,15 +559,19 @@
                 state.feedback='✅ 正确！ +10分'; playSound('correct');
                 if(q.type==='vocab') speakNow(q.english);
                 else if(q.type==='speaking') speakNow(q.options[q.correct]);
+                else if(q.type==='grammar') speakNow(q.options[q.correct]);
             } else {
                 state.lives--;
                 state.feedback = `❌ 错误！生命-1\n${getExplanation(q)}`;
                 playSound('wrong');
+                // 答错时也朗读正确答案
+                speakNow(q.options[q.correct]);
             }
+            const delay = correct ? 2000 : 3500;
             setTimeout(()=>{
                 if(state.lives<=0) gameOver();
                 else nextQuestion();
-            }, 1500);
+            }, delay);
         }
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
@@ -492,7 +579,9 @@
             state.feedback = `⏰ 时间到！生命-1\n${getExplanation(q)}`;
             playSound('wrong');
             const btn = document.getElementById(`opt${q.correct}`); if(btn) btn.classList.add('correct');
-            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 1500);
+            // 超时也朗读正确答案
+            speakNow(q.options[q.correct]);
+            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 3500);
         }
         function nextQuestion() {
             state.currentIndex++;
@@ -553,10 +642,17 @@
             }
         }
 
+        function toggleSound() {
+            unlockAllSound();
+            playSound('click');
+            _soundEnabled = true;
+            render();
+        }
+
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, readScenario, continueAdventure, goToStart, restart };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, readScenario, continueAdventure, goToStart, restart, toggleSound };
         render();
     })();
 </script>
