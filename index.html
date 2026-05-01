@@ -82,9 +82,10 @@
 
         function unlockSpeech() {
             if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance('');
+            // iOS 首次激活：必须同步 speak，不能 cancel 后再 speak
+            const u = new SpeechSynthesisUtterance('hello');
             u.volume = 0.01;
+            u.rate = 10; // 极速说完，用户听不到
             window.speechSynthesis.speak(u);
             // 预加载语音列表
             if (!_voicesLoaded) {
@@ -157,25 +158,30 @@
             return voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en')) || voices[0] || null;
         }
 
+        // iOS speechSynthesis 保活定时器
+        let _speechKeepAlive = null;
+
         function speakNow(text) {
             if (!('speechSynthesis' in window) || !text) return;
             const synth = window.speechSynthesis;
-            synth.cancel();
+            // 不用 cancel()！iOS 上 cancel 后 speak 会被吞
+            // 直接 speak，如果正在播放会排队
             const voice = getBestAmericanVoice();
             const u = new SpeechSynthesisUtterance(text);
             if (voice) u.voice = voice;
             u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
-            // 移动端兼容：cancel后需小延迟再speak，否则iOS静音
-            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-            if (isMobile) {
-                setTimeout(() => {
-                    synth.speak(u);
-                    // iOS bug: 语音可能立刻暂停，需要resume
+            synth.speak(u);
+            // iOS bug: 语音播放中会自动暂停，需要反复 resume 保活
+            clearInterval(_speechKeepAlive);
+            _speechKeepAlive = setInterval(() => {
+                if (synth.speaking) {
                     synth.resume();
-                }, 100);
-            } else {
-                synth.speak(u);
-            }
+                } else {
+                    clearInterval(_speechKeepAlive);
+                }
+            }, 300);
+            u.onend = () => clearInterval(_speechKeepAlive);
+            u.onerror = () => clearInterval(_speechKeepAlive);
         }
 
         // ===== 词汇库 =====
@@ -660,8 +666,8 @@
         function readScenario() {
             const q = state.questions[state.currentIndex];
             if (q && q.type === 'speaking') {
-                // 移动端兼容：确保在用户手势内直接调用，并解锁AudioContext
-                try { if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume(); } catch(e){}
+                // 关键：必须在用户手势内同步调用，不能有任何异步包装
+                // iOS Safari 要求 speechSynthesis.speak() 在 click/touch 事件回调内同步执行
                 speakNow(q.options[q.correct]);
             }
         }
