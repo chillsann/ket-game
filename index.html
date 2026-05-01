@@ -62,7 +62,10 @@
         // ===== 音频系统 =====
         let _audioCtx = null;
         let _soundEnabled = false;
-        let _currentUtterance = null; // 保活，防止GC导致静音
+        // 语音播放用的 <audio> 元素（微信/安卓最可靠的方式）
+        let _ttsAudio = null;
+        // speechSynthesis 保活
+        let _currentUtterance = null;
         let _speechKeepAlive = null;
 
         function getAudioCtx() {
@@ -98,89 +101,57 @@
             } catch(e) {}
         }
 
-        // ===== 语音朗读（核心修复：安卓+iOS兼容）=====
-        let _speechUnlocked = false;
-
-        function unlockSpeech() {
-            if (_speechUnlocked) return;
-            if (!('speechSynthesis' in window)) return;
-            // 安卓关键修复：先用 AudioContext 播放静音来激活音频通道
-            // 安卓 Chrome 不先激活 AudioContext，speechSynthesis 就没声音
-            try {
-                const ctx = getAudioCtx();
-                if (ctx.state === 'suspended') ctx.resume();
-                const buffer = ctx.createBuffer(1, 1, 22050);
-                const source = ctx.createBufferSource();
-                source.buffer = buffer;
-                source.connect(ctx.destination);
-                source.start(0);
-            } catch(e) {}
-            // 预激活 speechSynthesis 引擎
-            try {
-                const synth = window.speechSynthesis;
-                synth.getVoices();
-                // 播放一段极短静音来激活 TTS 引擎
-                const warmup = new SpeechSynthesisUtterance(' ');
-                warmup.volume = 0.01;
-                warmup.rate = 10;
-                synth.speak(warmup);
-            } catch(e) {}
-            _speechUnlocked = true;
-        }
-
-        // 预加载 voices
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.getVoices();
-            window.speechSynthesis.onvoiceschanged = function() {
-                window.speechSynthesis.getVoices();
-            };
+        // ===== 语音朗读：audio元素 + 有道TTS（微信/安卓/iOS全兼容）=====
+        // 有道词典发音 API：美式发音 type=1，国内可直连，无需 key
+        function getTTSUrl(text) {
+            return 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(text) + '&type=2';
         }
 
         function speakNow(text) {
-            if (!('speechSynthesis' in window) || !text) return;
+            if (!text) return;
+            // 方案1（优先）：<audio> + 有道TTS —— 微信/安卓/全平台通用
+            try {
+                if (!_ttsAudio) {
+                    _ttsAudio = new Audio();
+                    _ttsAudio.preload = 'auto';
+                }
+                _ttsAudio.pause();
+                _ttsAudio.src = getTTSUrl(text);
+                _ttsAudio.play().catch(() => {
+                    // audio.play() 被阻止时，回退到 speechSynthesis
+                    speakNowFallback(text);
+                });
+            } catch(e) {
+                // <audio> 不可用时回退
+                speakNowFallback(text);
+            }
+        }
+
+        // 方案2（回退）：speechSynthesis —— Chrome/Safari 可用，微信不可用
+        function speakNowFallback(text) {
+            if (!('speechSynthesis' in window)) return;
             const synth = window.speechSynthesis;
-            // 清理之前的保活定时器
             clearInterval(_speechKeepAlive);
-            // 停止当前播放
             synth.cancel();
-            // 安卓关键：cancel后必须延迟，否则 speak 被吞
             setTimeout(() => {
-                // 再次确保 AudioContext 已激活
-                try {
-                    const ctx = getAudioCtx();
-                    if (ctx.state === 'suspended') ctx.resume();
-                } catch(e) {}
-                // 创建 utterance 并保活
+                try { getAudioCtx(); } catch(e) {}
                 _currentUtterance = new SpeechSynthesisUtterance(text);
                 _currentUtterance.lang = 'en-US';
                 _currentUtterance.rate = 0.85;
-                _currentUtterance.pitch = 1.0;
                 _currentUtterance.volume = 1.0;
-                // 不设 voice —— 安卓上 voices 可能未加载，设了会静默失败
-                // 只用 lang='en-US' 让系统自动选引擎
-                const voices = synth.getVoices();
-                if (voices && voices.length > 0) {
-                    const enVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
-                    if (enVoice) _currentUtterance.voice = enVoice;
-                }
-                // 保活定时器：防止安卓/iOS 自动暂停
                 _speechKeepAlive = setInterval(() => {
-                    if (synth.speaking) {
-                        synth.resume();
-                    } else {
-                        clearInterval(_speechKeepAlive);
-                    }
+                    if (synth.speaking) synth.resume();
+                    else clearInterval(_speechKeepAlive);
                 }, 300);
-                _currentUtterance.onend = () => { clearInterval(_speechKeepAlive); };
-                _currentUtterance.onerror = () => { clearInterval(_speechKeepAlive); };
+                _currentUtterance.onend = () => clearInterval(_speechKeepAlive);
+                _currentUtterance.onerror = () => clearInterval(_speechKeepAlive);
                 synth.speak(_currentUtterance);
-            }, 50);
+            }, 100);
         }
 
-        // 首次交互解锁音频+语音
+        // 首次交互解锁音频
         function unlockAll() {
             try { getAudioCtx(); } catch(e) {}
-            unlockSpeech();
             _soundEnabled = true;
         }
         ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
@@ -528,29 +499,15 @@
             }
         });
 
-        // "听发音"按钮：渲染后直接绑定（安卓Chrome需要原生事件上下文）
-        // 用 MutationObserver 监听 DOM 变化，每次出现新按钮时重新绑定
-        const _readScenarioHandler = function(e) {
-            e.preventDefault();
-            const q = state.questions[state.currentIndex];
-            if (q && q.type === 'speaking') {
-                // 安卓关键：先解锁，再朗读
-                unlockSpeech();
-                speakNow(q.options[q.correct]);
-            }
-        };
-        // 用事件捕获+冒泡双重监听确保安卓触发
+        // "听发音"按钮事件
         document.addEventListener('click', function(e) {
             if (e.target.id === 'btnReadScenario' || e.target.closest('#btnReadScenario')) {
-                _readScenarioHandler(e);
+                const q = state.questions[state.currentIndex];
+                if (q && q.type === 'speaking') {
+                    speakNow(q.options[q.correct]);
+                }
             }
         }, true);
-        document.addEventListener('touchend', function(e) {
-            if (e.target.id === 'btnReadScenario' || e.target.closest('#btnReadScenario')) {
-                // 安卓 touchend 先解锁，click 再朗读（避免重复）
-                unlockSpeech();
-            }
-        }, { passive: true });
 
         function startGame() {
             state.lives = TOTAL_LIVES; state.score=0; state.stars=0;
