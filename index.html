@@ -98,40 +98,37 @@
             } catch(e) {}
         }
 
-        // ===== 语音朗读（核心修复：iOS兼容）=====
-        function speakNow(text) {
-            if (!('speechSynthesis' in window) || !text) return;
-            const synth = window.speechSynthesis;
-            // 清理之前的保活定时器
-            clearInterval(_speechKeepAlive);
-            // 如果正在播放，先停止
-            synth.cancel();
-            // 创建 utterance 并保活（防止GC导致静音中断）
-            _currentUtterance = new SpeechSynthesisUtterance(text);
-            _currentUtterance.lang = 'en-US';
-            _currentUtterance.rate = 0.85;
-            _currentUtterance.pitch = 1.0;
-            _currentUtterance.volume = 1.0;
-            // 关键修复：iOS 上不设 voice！
-            // 如果 voice 列表未加载完毕，设置 voice 会导致静默失败
-            // 只设 lang='en-US'，让系统自动选择对应语言的默认 voice
-            const voices = synth.getVoices();
-            if (voices && voices.length > 0) {
-                // voices 已加载，安全设置
-                const enVoice = voices.find(v => v.lang.startsWith('en-US')) || voices.find(v => v.lang.startsWith('en'));
-                if (enVoice) _currentUtterance.voice = enVoice;
-            }
-            // iOS 保活：播放中可能被系统自动暂停，需要反复 resume
-            _speechKeepAlive = setInterval(() => {
-                if (synth.speaking) synth.resume();
-                else clearInterval(_speechKeepAlive);
-            }, 300);
-            _currentUtterance.onend = () => { clearInterval(_speechKeepAlive); };
-            _currentUtterance.onerror = () => { clearInterval(_speechKeepAlive); };
-            synth.speak(_currentUtterance);
+        // ===== 语音朗读（核心修复：安卓+iOS兼容）=====
+        let _speechUnlocked = false;
+
+        function unlockSpeech() {
+            if (_speechUnlocked) return;
+            if (!('speechSynthesis' in window)) return;
+            // 安卓关键修复：先用 AudioContext 播放静音来激活音频通道
+            // 安卓 Chrome 不先激活 AudioContext，speechSynthesis 就没声音
+            try {
+                const ctx = getAudioCtx();
+                if (ctx.state === 'suspended') ctx.resume();
+                const buffer = ctx.createBuffer(1, 1, 22050);
+                const source = ctx.createBufferSource();
+                source.buffer = buffer;
+                source.connect(ctx.destination);
+                source.start(0);
+            } catch(e) {}
+            // 预激活 speechSynthesis 引擎
+            try {
+                const synth = window.speechSynthesis;
+                synth.getVoices();
+                // 播放一段极短静音来激活 TTS 引擎
+                const warmup = new SpeechSynthesisUtterance(' ');
+                warmup.volume = 0.01;
+                warmup.rate = 10;
+                synth.speak(warmup);
+            } catch(e) {}
+            _speechUnlocked = true;
         }
 
-        // 预加载 voices（iOS 异步加载）
+        // 预加载 voices
         if ('speechSynthesis' in window) {
             window.speechSynthesis.getVoices();
             window.speechSynthesis.onvoiceschanged = function() {
@@ -139,9 +136,51 @@
             };
         }
 
-        // 首次交互解锁音频
+        function speakNow(text) {
+            if (!('speechSynthesis' in window) || !text) return;
+            const synth = window.speechSynthesis;
+            // 清理之前的保活定时器
+            clearInterval(_speechKeepAlive);
+            // 停止当前播放
+            synth.cancel();
+            // 安卓关键：cancel后必须延迟，否则 speak 被吞
+            setTimeout(() => {
+                // 再次确保 AudioContext 已激活
+                try {
+                    const ctx = getAudioCtx();
+                    if (ctx.state === 'suspended') ctx.resume();
+                } catch(e) {}
+                // 创建 utterance 并保活
+                _currentUtterance = new SpeechSynthesisUtterance(text);
+                _currentUtterance.lang = 'en-US';
+                _currentUtterance.rate = 0.85;
+                _currentUtterance.pitch = 1.0;
+                _currentUtterance.volume = 1.0;
+                // 不设 voice —— 安卓上 voices 可能未加载，设了会静默失败
+                // 只用 lang='en-US' 让系统自动选引擎
+                const voices = synth.getVoices();
+                if (voices && voices.length > 0) {
+                    const enVoice = voices.find(v => v.lang === 'en-US') || voices.find(v => v.lang.startsWith('en'));
+                    if (enVoice) _currentUtterance.voice = enVoice;
+                }
+                // 保活定时器：防止安卓/iOS 自动暂停
+                _speechKeepAlive = setInterval(() => {
+                    if (synth.speaking) {
+                        synth.resume();
+                    } else {
+                        clearInterval(_speechKeepAlive);
+                    }
+                }, 300);
+                _currentUtterance.onend = () => { clearInterval(_speechKeepAlive); };
+                _currentUtterance.onerror = () => { clearInterval(_speechKeepAlive); };
+                synth.speak(_currentUtterance);
+            }, 50);
+        }
+
+        // 首次交互解锁音频+语音
         function unlockAll() {
             try { getAudioCtx(); } catch(e) {}
+            unlockSpeech();
             _soundEnabled = true;
         }
         ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
@@ -452,7 +491,7 @@
             const modeLabel = state.isReviewMode ? '🔄错题重做' : (state.dailyMode ? '📅每日打卡' : ({vocab:'🌳词汇',grammar:'⛰️语法',speaking:'🏘️口语'})[state.currentWorld]);
             if (q.type === 'vocab') html = `<div class="question-text">"${q.english}" 的中文意思是？</div>`;
             else if (q.type === 'grammar') html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
-            else html = `<div class="question-text">${q.scenario}</div><button class="btn" data-action="readScenario" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
+            else html = `<div class="question-text">${q.scenario}</div><button class="btn" id="btnReadScenario" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
             const opts = q.options.map((opt,i)=>`<button class="option-btn" data-action="answer" data-idx="${i}">${opt}</button>`).join('');
             const feedbackClass = state.feedback && state.feedback.includes('❌') ? 'feedback-msg explain' : 'feedback-msg';
             container.innerHTML = `<div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${modeLabel}</span><span class="score">⭐ ${state.stars}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div><div class="timer">⏳ ${state.timeLeft}</div><div class="question-area">${html}</div><div class="options">${opts}</div><div class="${feedbackClass}">${state.feedback||''}</div>`;
@@ -478,7 +517,7 @@
             container.innerHTML = `<div class="dino">🦖🎉</div><h2>冒险完成！</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(t)} (${t}/9)</p>${cert}<button class="btn" onclick="game.restart()">再玩一次</button><button class="btn" onclick="game.goToStart()">返回首页</button>`;
         }
 
-        // ===== 事件委托（关键修复：iOS需要原生事件监听器才能触发speechSynthesis）=====
+        // ===== 事件委托 =====
         container.addEventListener('click', function(e) {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
@@ -486,13 +525,32 @@
             if (action === 'answer') {
                 const idx = parseInt(btn.getAttribute('data-idx'));
                 answer(idx);
-            } else if (action === 'readScenario') {
-                const q = state.questions[state.currentIndex];
-                if (q && q.type === 'speaking') {
-                    speakNow(q.options[q.correct]);
-                }
             }
         });
+
+        // "听发音"按钮：渲染后直接绑定（安卓Chrome需要原生事件上下文）
+        // 用 MutationObserver 监听 DOM 变化，每次出现新按钮时重新绑定
+        const _readScenarioHandler = function(e) {
+            e.preventDefault();
+            const q = state.questions[state.currentIndex];
+            if (q && q.type === 'speaking') {
+                // 安卓关键：先解锁，再朗读
+                unlockSpeech();
+                speakNow(q.options[q.correct]);
+            }
+        };
+        // 用事件捕获+冒泡双重监听确保安卓触发
+        document.addEventListener('click', function(e) {
+            if (e.target.id === 'btnReadScenario' || e.target.closest('#btnReadScenario')) {
+                _readScenarioHandler(e);
+            }
+        }, true);
+        document.addEventListener('touchend', function(e) {
+            if (e.target.id === 'btnReadScenario' || e.target.closest('#btnReadScenario')) {
+                // 安卓 touchend 先解锁，click 再朗读（避免重复）
+                unlockSpeech();
+            }
+        }, { passive: true });
 
         function startGame() {
             state.lives = TOTAL_LIVES; state.score=0; state.stars=0;
