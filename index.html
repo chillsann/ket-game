@@ -32,8 +32,8 @@
         .option-btn.correct { background: #2ecc71; border-color: #27ae60; color: white; }
         .option-btn.wrong { background: #e74c3c; border-color: #c0392b; color: white; }
         .option-btn:disabled { pointer-events: none; opacity: 0.8; }
-        .feedback-msg { font-size: 1rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; line-height: 1.5; padding: 8px; border-radius: 12px; }
-        .feedback-msg.explain { background: #eaf6ff; border: 2px solid #3498db; text-align: left; }
+        .feedback-msg { font-size: 1rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; line-height: 1.6; padding: 12px; border-radius: 12px; }
+        .feedback-msg.explain { background: #eaf6ff; border: 2px solid #3498db; text-align: left; font-size: 1.05rem; }
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
@@ -577,7 +577,18 @@
                 state.lives--;
                 // 记录错题
                 state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
-                state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
+                // 当场显示正确答案 + 解析
+                const correctAnswer = q.options[q.correct];
+                const wrongAnswer = q.options[idx];
+                let explain = '';
+                if (q.type === 'vocab') {
+                    explain = `📖 解析："${q.english}" 的意思是"${correctAnswer}"，不是"${wrongAnswer}"。`;
+                } else if (q.type === 'grammar') {
+                    explain = `📖 解析：${q.explanation || '请记住这个语法点。'}`;
+                } else if (q.type === 'speaking') {
+                    explain = `📖 解析：正确表达是"${correctAnswer}"。${q.explanation || ''}`;
+                }
+                state.feedback = `❌ 错误！生命-1\n✅ 正确答案：${correctAnswer}\n${explain}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
             }
@@ -587,9 +598,19 @@
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
             const q = state.questions[state.currentIndex];
+            const correctAnswer = q.options[q.correct];
             // 超时也记错题
             state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
-            state.feedback = `⏰ 时间到！生命-1\n${getExplanation(q)}`;
+            // 当场显示正确答案 + 解析
+            let explain = '';
+            if (q.type === 'vocab') {
+                explain = `📖 解析："${q.english}" 的意思是"${correctAnswer}"。`;
+            } else if (q.type === 'grammar') {
+                explain = `📖 解析：${q.explanation || '请记住这个语法点。'}`;
+            } else if (q.type === 'speaking') {
+                explain = `📖 解析：正确表达是"${correctAnswer}"。${q.explanation || ''}`;
+            }
+            state.feedback = `⏰ 时间到！生命-1\n✅ 正确答案：${correctAnswer}\n${explain}`;
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
             speakNow(q.options[q.correct]);
