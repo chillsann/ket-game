@@ -159,12 +159,23 @@
 
         function speakNow(text) {
             if (!('speechSynthesis' in window) || !text) return;
-            window.speechSynthesis.cancel();
+            const synth = window.speechSynthesis;
+            synth.cancel();
             const voice = getBestAmericanVoice();
             const u = new SpeechSynthesisUtterance(text);
             if (voice) u.voice = voice;
             u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.0; u.volume = 1.0;
-            window.speechSynthesis.speak(u);
+            // 移动端兼容：cancel后需小延迟再speak，否则iOS静音
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                setTimeout(() => {
+                    synth.speak(u);
+                    // iOS bug: 语音可能立刻暂停，需要resume
+                    synth.resume();
+                }, 100);
+            } else {
+                synth.speak(u);
+            }
         }
 
         // ===== 词汇库 =====
@@ -378,16 +389,27 @@
         function getStreak() { return parseInt(localStorage.getItem(STORAGE_KEY_STREAK)) || 0; }
         function setStreak(n) { localStorage.setItem(STORAGE_KEY_STREAK, n); }
 
-        function getExplanation(q) {
+        function getExplanation(q, wrongIdx) {
             const correctAnswer = q.options[q.correct];
-            if (q.type === 'vocab') return `正确答案是"${correctAnswer}"。英文单词"${q.english}"的中文意思是"${correctAnswer}"。`;
+            const wrongAnswer = (wrongIdx !== undefined && wrongIdx >= 0) ? q.options[wrongIdx] : null;
+            if (q.type === 'vocab') {
+                let msg = `正确答案是"${correctAnswer}"。"${q.english}"的意思是"${correctAnswer}"`; 
+                if (wrongAnswer) msg += `，不是"${wrongAnswer}"`;
+                return msg + '。';
+            }
             if (q.type === 'grammar') {
-                if (q.explanation) return `正确答案是"${correctAnswer}"。📖 ${q.explanation}`;
-                return `正确答案是"${correctAnswer}"。请记住这个语法点。`;
+                let msg = `正确答案是"${correctAnswer}"。`;
+                if (wrongAnswer) msg += `你选的"${wrongAnswer}"是错的，`;
+                if (q.explanation) msg += `📖 ${q.explanation}`;
+                else msg += '请记住这个语法点。';
+                return msg;
             }
             if (q.type === 'speaking') {
-                if (q.explanation) return `正确答案是"${correctAnswer}"。💬 ${q.explanation}`;
-                return `正确答案是"${correctAnswer}"。这是日常交际用语的正确表达方式。`;
+                let msg = `正确答案是"${correctAnswer}"。`;
+                if (wrongAnswer) msg += `"${wrongAnswer}"不是地道的表达，`;
+                if (q.explanation) msg += `💬 ${q.explanation}`;
+                else msg += '这是日常交际用语的正确表达方式。';
+                return msg;
             }
             return `正确答案是"${correctAnswer}"。`;
         }
@@ -562,7 +584,7 @@
                 else if(q.type==='grammar') speakNow(q.options[q.correct]);
             } else {
                 state.lives--;
-                state.feedback = `❌ 错误！生命-1\n${getExplanation(q)}`;
+                state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 // 答错时也朗读正确答案
                 speakNow(q.options[q.correct]);
@@ -638,6 +660,8 @@
         function readScenario() {
             const q = state.questions[state.currentIndex];
             if (q && q.type === 'speaking') {
+                // 移动端兼容：确保在用户手势内直接调用，并解锁AudioContext
+                try { if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume(); } catch(e){}
                 speakNow(q.options[q.correct]);
             }
         }
