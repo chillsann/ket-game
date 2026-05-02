@@ -700,6 +700,8 @@
                 state.feedback='✅ 正确！ +10分'; playSound('correct');
                 if(q.type==='vocab') speakNow(q.english);
                 else speakNow(q.options[q.correct]);
+                // 答对：延迟1.5秒后自动下一题
+                setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 1500);
             } else {
                 state.lives--;
                 // 记录错题
@@ -707,9 +709,9 @@
                 state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
+                // 答错：显示"下一题"按钮，不自动跳转
+                showNextButton();
             }
-            // 显示"下一题"按钮，不自动跳转
-            showNextButton();
         }
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
