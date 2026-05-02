@@ -708,8 +708,8 @@
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
             }
-            const delay = correct ? 2000 : 3500;
-            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, delay);
+            // 显示"下一题"按钮，不自动跳转
+            showNextButton();
         }
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
@@ -720,7 +720,22 @@
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
             speakNow(q.options[q.correct]);
-            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 3500);
+            // 显示"下一题"按钮，不自动跳转
+            showNextButton();
+        }
+        function showNextButton() {
+            if (state.lives <= 0) { gameOver(); return; }
+            // 检查是否所有题目已完成
+            if (state.currentIndex >= state.questions.length - 1) {
+                // 最后一题，跳转至结束逻辑
+                nextQuestion();
+                return;
+            }
+            // 显示"下一题"按钮
+            const feedbackDiv = document.querySelector('.feedback-msg') || document.querySelector('.explain');
+            if (feedbackDiv) {
+                feedbackDiv.innerHTML += `<br><br><button class="btn" onclick="game.nextQuestion()" style="margin-top:10px;">下一题 ▶</button>`;
+            }
         }
         function nextQuestion() {
             state.currentIndex++;
@@ -857,7 +872,7 @@
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview, nextQuestion, showNextButton };
         render();
     })();
 </script>
