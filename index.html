@@ -56,14 +56,15 @@
     </style>
 </head>
 <body>
+<!-- 预置 audio 元素，确保微信/X5 内核可播放 -->
+<audio id="ttsAudio" preload="auto" style="display:none;"></audio>
 <div class="game-container" id="gameContainer"></div>
 <script>
     (function() {
         // ===== 音频系统 =====
         let _audioCtx = null;
         let _soundEnabled = true;
-        // 语音播放用的 <audio> 元素（微信/安卓最可靠的方式）
-        let _ttsAudio = null;
+        // 语音播放使用页面预置的 <audio id="ttsAudio"> 元素
         // speechSynthesis 保活
         let _currentUtterance = null;
         let _speechKeepAlive = null;
@@ -111,13 +112,12 @@
             if (!text) return;
             // 方案1（优先）：<audio> + 有道TTS —— 微信/安卓/全平台通用
             try {
-                if (!_ttsAudio) {
-                    _ttsAudio = new Audio();
-                    _ttsAudio.preload = 'auto';
-                }
-                _ttsAudio.pause();
-                _ttsAudio.src = getTTSUrl(text);
-                _ttsAudio.play().catch(() => {
+                // 使用页面预置的 <audio> 元素（必须在 DOM 中，微信才允许播放）
+                const audioEl = document.getElementById('ttsAudio');
+                if (!audioEl) throw new Error('ttsAudio not found');
+                audioEl.pause();
+                audioEl.src = getTTSUrl(text);
+                audioEl.play().catch(() => {
                     // audio.play() 被阻止时，回退到 speechSynthesis
                     speakNowFallback(text);
                 });
@@ -149,10 +149,15 @@
             }, 100);
         }
 
-        // 首次交互解锁音频
+        // 首次交互解锁音频（微信/X5 要求用户手势后才能 play audio）
         function unlockAll() {
             try { getAudioCtx(); } catch(e) {}
             _soundEnabled = true;
+            // 尝试解锁预置的 <audio> 元素
+            const audioEl = document.getElementById('ttsAudio');
+            if (audioEl) {
+                audioEl.load();  // 重置音频，准备播放
+            }
         }
         ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
             document.addEventListener(evt, unlockAll, { once: true });
