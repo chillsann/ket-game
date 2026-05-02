@@ -32,8 +32,8 @@
         .option-btn.correct { background: #2ecc71; border-color: #27ae60; color: white; }
         .option-btn.wrong { background: #e74c3c; border-color: #c0392b; color: white; }
         .option-btn:disabled { pointer-events: none; opacity: 0.8; }
-        .feedback-msg { font-size: 1rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; line-height: 1.6; padding: 12px; border-radius: 12px; }
-        .feedback-msg.explain { background: #eaf6ff; border: 2px solid #3498db; text-align: left; font-size: 1.05rem; }
+        .feedback-msg { font-size: 1rem; font-weight: bold; margin-top: 10px; min-height: 30px; white-space: pre-wrap; color: #2c3e50; line-height: 1.5; padding: 8px; border-radius: 12px; }
+        .feedback-msg.explain { background: #eaf6ff; border: 2px solid #3498db; text-align: left; }
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
@@ -56,15 +56,14 @@
     </style>
 </head>
 <body>
-<!-- 预置 audio 元素，确保微信/X5 内核可播放 -->
-<audio id="ttsAudio" preload="auto" style="display:none;"></audio>
 <div class="game-container" id="gameContainer"></div>
 <script>
     (function() {
         // ===== 音频系统 =====
         let _audioCtx = null;
-        let _soundEnabled = true;
-        // 语音播放使用页面预置的 <audio id="ttsAudio"> 元素
+        let _soundEnabled = false;
+        // 语音播放用的 <audio> 元素（微信/安卓最可靠的方式）
+        let _ttsAudio = null;
         // speechSynthesis 保活
         let _currentUtterance = null;
         let _speechKeepAlive = null;
@@ -112,12 +111,13 @@
             if (!text) return;
             // 方案1（优先）：<audio> + 有道TTS —— 微信/安卓/全平台通用
             try {
-                // 使用页面预置的 <audio> 元素（必须在 DOM 中，微信才允许播放）
-                const audioEl = document.getElementById('ttsAudio');
-                if (!audioEl) throw new Error('ttsAudio not found');
-                audioEl.pause();
-                audioEl.src = getTTSUrl(text);
-                audioEl.play().catch(() => {
+                if (!_ttsAudio) {
+                    _ttsAudio = new Audio();
+                    _ttsAudio.preload = 'auto';
+                }
+                _ttsAudio.pause();
+                _ttsAudio.src = getTTSUrl(text);
+                _ttsAudio.play().catch(() => {
                     // audio.play() 被阻止时，回退到 speechSynthesis
                     speakNowFallback(text);
                 });
@@ -149,15 +149,10 @@
             }, 100);
         }
 
-        // 首次交互解锁音频（微信/X5 要求用户手势后才能 play audio）
+        // 首次交互解锁音频
         function unlockAll() {
             try { getAudioCtx(); } catch(e) {}
             _soundEnabled = true;
-            // 尝试解锁预置的 <audio> 元素
-            const audioEl = document.getElementById('ttsAudio');
-            if (audioEl) {
-                audioEl.load();  // 重置音频，准备播放
-            }
         }
         ['touchstart', 'touchend', 'click', 'pointerdown'].forEach(evt => {
             document.addEventListener(evt, unlockAll, { once: true });
@@ -170,7 +165,7 @@
             adjectives: ["good","bad","nice","beautiful","ugly","happy","sad","angry","tired","hungry","thirsty","ill","well","hot","cold","warm","cool","new","old","young","big","small","large","little","long","short","tall","fat","thin","fast","slow","early","late","easy","difficult","hard","cheap","expensive","free","busy","quiet","loud","clean","dirty","full","empty","open","closed","right","wrong","same","different","favourite","important","famous","popular","interesting","boring","funny","kind","friendly","dangerous","safe","afraid","alone","lucky","ready","sorry"]
         };;
         const ALL_WORDS = [...KET_LEXICON.nouns, ...KET_LEXICON.verbs, ...KET_LEXICON.adjectives];
-        const WORD_MEANING = {"apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","food":"食物","meal":"一餐","fruit":"水果","meat":"肉","egg":"鸡蛋","vegetable":"蔬菜","salad":"沙拉","sandwich":"三明治","soup":"汤","chocolate":"巧克力","sweet":"糖果","biscuit":"饼干","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","animal":"动物","pet":"宠物","head":"头","face":"脸","eye":"眼睛","ear":"耳朵","nose":"鼻子","mouth":"嘴巴","hand":"手","arm":"手臂","leg":"腿","foot":"脚","shirt":"衬衫","T-shirt":"T恤","dress":"连衣裙","skirt":"裙子","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","clothes":"衣服","uniform":"制服","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","red":"红色","blue":"蓝色","green":"绿色","yellow":"黄色","black":"黑色","white":"白色","colour":"颜色","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","home":"家","house":"房子","room":"房间","bed":"床","bedroom":"卧室","bathroom":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","door":"门","window":"窗户","name":"名字","time":"时间","day":"天","morning":"早上","afternoon":"下午","evening":"晚上","night":"夜晚","today":"今天","tomorrow":"明天","yesterday":"昨天","birthday":"生日","week":"周","weekend":"周末","month":"月","year":"年","hour":"小时","minute":"分钟","family":"家庭","parent":"父/母","grandparent":"祖父/祖母","grandfather":"爷爷","grandmother":"奶奶","uncle":"叔叔","aunt":"阿姨","cousin":"堂兄弟姐妹","baby":"婴儿","friend":"朋友","teacher":"老师","pupil":"小学生","student":"学生","doctor":"医生","nurse":"护士","job":"工作","driver":"司机","farmer":"农民","policeman":"警察","fireman":"消防员","school":"学校","classroom":"教室","lesson":"课","homework":"家庭作业","break":"休息","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","photo":"照片","picture":"图画","map":"地图","paper":"纸","newspaper":"报纸","magazine":"杂志","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","park":"公园","shop":"商店","restaurant":"餐厅","hotel":"酒店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","place":"地方","station":"车站","bus stop":"公交站","airport":"机场","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","holiday":"假日","present":"礼物","story":"故事","letter":"信","phone":"电话","computer":"电脑","camera":"相机","television":"电视","TV":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","internet":"互联网","email":"电子邮件","ticket":"票","key":"钥匙","money":"钱","price":"价格","sport":"运动","football":"足球","tennis":"网球","swimming":"游泳","film":"电影","party":"聚会","dance":"跳舞","draw":"画画","sing":"唱歌","good":"好的","bad":"坏的","nice":"美好的","beautiful":"美丽的","ugly":"丑的","happy":"开心的","sad":"伤心的","angry":"生气的","tired":"累的","hungry":"饿的","thirsty":"渴的","ill":"生病的","well":"健康的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","new":"新的","old":"老的","young":"年轻的","big":"大的","small":"小的","large":"大的","little":"小的","long":"长的","short":"短的","tall":"高的","fat":"胖的","thin":"瘦的","fast":"快的","slow":"慢的","early":"早的","late":"晚的","easy":"容易的","difficult":"困难的","hard":"困难的","cheap":"便宜的","expensive":"贵的","free":"免费的","busy":"忙的","quiet":"安静的","loud":"吵闹的","clean":"干净的","dirty":"脏的","full":"满的","empty":"空的","open":"开着的","closed":"关着的","right":"对的","wrong":"错的","same":"相同的","different":"不同的","favourite":"最喜爱的","important":"重要的","famous":"著名的","popular":"流行的","interesting":"有趣的","boring":"无聊的","funny":"好笑的","kind":"善良的","friendly":"友好的","dangerous":"危险的","safe":"安全的","afraid":"害怕的","alone":"独自的","lucky":"幸运的","ready":"准备好的","sorry":"抱歉的","modern":"现代的","noisy":"吵闹的","wet":"湿的","dry":"干的","exciting":"令人兴奋的"};
+        const WORD_MEANING = {"apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"想","take":"拿","see":"看","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意味着","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转","start":"开始","show":"展示","hear":"听到","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付钱","meet":"见面","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"读","allow":"允许","add":"添加","spend":"花费","grow":"成长","open":"打开","walk":"走路","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"需要","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一的","last":"最后的","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"对的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够的","happy":"开心的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","closed":"关着的","free":"免费的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"独自的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"令人兴奋的","funny":"好笑的","kind":"善良的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的"};
 
         // ===== 语法题库（带讲解）=====
         let GRAMMAR_CORE = [
@@ -262,14 +257,14 @@
             { question: "I can't find my keys. Have you seen ___?", options: ["it", "them", "they", "their"], correct: 1, explanation: "人称代词宾格：keys 是复数，用宾格 them" },
             { question: "He is the ___ player in the team.", options: ["good", "better", "best", "well"], correct: 2, explanation: "最高级：三者以上比较用最高级，good → best（不规则变化），前加 the" },
             { question: "___ dog is very friendly.", options: ["They", "Them", "Their", "Theirs"], correct: 2, explanation: "形容词性物主代词：Their 修饰名词 dog，放在名词前面" },
-            { question: "I ___ a brother.", options: ["have got", "have get", "has got", "am got"], correct: 0, explanation: "have got = have，表示'有'，I/You/We/They 用 have got" },
-{ question: "She ___ goes to school by bus.", options: ["never", "tomorrow", "yesterday", "now"], correct: 0, explanation: "频率副词（never/sometimes/often/always）描述动作发生的频率" },
-{ question: "This coffee is ___ hot to drink.", options: ["too", "enough", "very", "so"], correct: 0, explanation: "too + 形容词 + to do，表示'太……而不能……'" },
-{ question: "There are ___ people in the park.", options: ["too many", "too much", "enough", "many too"], correct: 0, explanation: "too many + 可数名词复数；too much + 不可数名词" },
-{ question: "I have ___ finished my homework.", options: ["just", "yet", "ago", "last"], correct: 0, explanation: "just 与现在完成时连用，表示'刚刚'" },
-{ question: "Have you ___ been to London?", options: ["ever", "never", "just", "ago"], correct: 0, explanation: "ever 用于现在完成时疑问句，表示'曾经'" },
-{ question: "I have lived here ___ 2010.", options: ["for", "since", "ago", "last"], correct: 1, explanation: "since + 时间点（2010）；for + 时间段（for 5 years）" },
-{ question: "You like music, ___ ?", options: ["don't you", "do you", "aren't you", "are you"], correct: 0, explanation: "反义疑问句：前肯后否，前否后肯；like 是动词，用 don't" },
+            { question: "I ___ a brother.", options: ["have got", "have get", "has got", "am got"], correct: 0, explanation: "have got = have，表示'有'，I/You/We/They 用 have got" },,
+{ question: "She ___ goes to school by bus.", options: ["never", "tomorrow", "yesterday", "now"], correct: 0, explanation: "频率副词（never/sometimes/often/always）描述动作发生的频率" },,
+{ question: "This coffee is ___ hot to drink.", options: ["too", "enough", "very", "so"], correct: 0, explanation: "too + 形容词 + to do，表示'太……而不能……'" },,
+{ question: "There are ___ people in the park.", options: ["too many", "too much", "enough", "many too"], correct: 0, explanation: "too many + 可数名词复数；too much + 不可数名词" },,
+{ question: "I have ___ finished my homework.", options: ["just", "yet", "ago", "last"], correct: 0, explanation: "just 与现在完成时连用，表示'刚刚'" },,
+{ question: "Have you ___ been to London?", options: ["ever", "never", "just", "ago"], correct: 0, explanation: "ever 用于现在完成时疑问句，表示'曾经'" },,
+{ question: "I have lived here ___ 2010.", options: ["for", "since", "ago", "last"], correct: 1, explanation: "since + 时间点（2010）；for + 时间段（for 5 years）" },,
+{ question: "You like music, ___ ?", options: ["don't you", "do you", "aren't you", "are you"], correct: 0, explanation: "反义疑问句：前肯后否，前否后肯；like 是动词，用 don't" },,
         ];
         while (GRAMMAR_CORE.length < 200) GRAMMAR_CORE.push({...extraGram[GRAMMAR_CORE.length % extraGram.length]});
 
@@ -325,16 +320,16 @@
             { s: "说想去公园散步：", o: ["I'd like to go for a walk in the park.", "Park walk.", "Walk park.", "Go park walk."], c: 0, explanation: "I'd like to + 动词原形，是礼貌表达意愿的标准句型" },
             { s: "请人帮忙拿东西：", o: ["Could you pass me the salt, please?", "Salt.", "Give salt.", "Pass salt."], c: 0, explanation: "Could you + 动词原形，是礼貌请求的标准句型" },
             { s: "听到好消息时回应：", o: ["That's great!", "Great!", "Wow!", "Nice!"], c: 0, explanation: "That's great! 是听到好消息时的完整礼貌回应" },
-            { s: "描述你的妈妈：", o: ["She has long hair and kind eyes.", "My mother she kind.", "Mother very good.", "She mother nice."], c: 0, explanation: "描述人物用'主语 + have/has + 特征'，如 She has long hair." },
-{ s: "你怎么去上学？", o: ["I go to school by bus every day.", "I go school bus.", "Every day I go school.", "Bus me to school."], c: 0, explanation: "谈论日常用一般现在时，by bus = 乘公交车" },
-{ s: "上周未你做了什么？", o: ["I played football last weekend.", "I play football last weekend.", "I am playing football.", "Last weekend I play."], c: 0, explanation: "last weekend 表示过去，动词用过去式 played" },
-{ s: "明天你打算做什么？", o: ["I'm going to visit my grandma.", "I go visit grandma.", "I will to visit grandma.", "Tomorrow I visit."], c: 0, explanation: "be going to + 动词原形，表示打算/计划做某事" },
-{ s: "在咖啡厅点一杯茶：", o: ["I'd like a cup of tea, please.", "Tea please.", "Give me tea.", "I want tea."], c: 0, explanation: "I'd like... please. 是点餐/点饮料的礼貌说法" },
-{ s: "问对方觉得这本书怎么样：", o: ["What do you think of this book?", "How think book?", "You think book?", "Book how?"], c: 0, explanation: "What do you think of...? 是征求对方意见的标准句型" },
-{ s: "描述这张图片（公园场景）：", o: ["There are many people in the park.", "Park have many people.", "People in park many.", "In park people many."], c: 0, explanation: "There are + 复数名词，描述图片常用句型" },
-{ s: "你为什么喜欢音乐？", o: ["Because it makes me happy.", "Music is happy me.", "Why music I like.", "I like music because happy."], c: 0, explanation: "Because... 用来表达原因，放在句子后面" },
+            { s: "描述你的妈妈：", o: ["She has long hair and kind eyes.", "My mother she kind.", "Mother very good.", "She mother nice."], c: 0, explanation: "描述人物用'主语 + have/has + 特征'，如 She has long hair." },,
+{ s: "你怎么去上学？", o: ["I go to school by bus every day.", "I go school bus.", "Every day I go school.", "Bus me to school."], c: 0, explanation: "谈论日常用一般现在时，by bus = 乘公交车" },,
+{ s: "上周未你做了什么？", o: ["I played football last weekend.", "I play football last weekend.", "I am playing football.", "Last weekend I play."], c: 0, explanation: "last weekend 表示过去，动词用过去式 played" },,
+{ s: "明天你打算做什么？", o: ["I'm going to visit my grandma.", "I go visit grandma.", "I will to visit grandma.", "Tomorrow I visit."], c: 0, explanation: "be going to + 动词原形，表示打算/计划做某事" },,
+{ s: "在咖啡厅点一杯茶：", o: ["I'd like a cup of tea, please.", "Tea please.", "Give me tea.", "I want tea."], c: 0, explanation: "I'd like... please. 是点餐/点饮料的礼貌说法" },,
+{ s: "问对方觉得这本书怎么样：", o: ["What do you think of this book?", "How think book?", "You think book?", "Book how?"], c: 0, explanation: "What do you think of...? 是征求对方意见的标准句型" },,
+{ s: "描述这张图片（公园场景）：", o: ["There are many people in the park.", "Park have many people.", "People in park many.", "In park people many."], c: 0, explanation: "There are + 复数名词，描述图片常用句型" },,
+{ s: "你为什么喜欢音乐？", o: ["Because it makes me happy.", "Music is happy me.", "Why music I like.", "I like music because happy."], c: 0, explanation: "Because... 用来表达原因，放在句子后面" },,
         ];
-        while (SPEAKING_CORE.length < 150) {
+       while (SPEAKING_CORE.length < 150) {
             const ex = extraSp[SPEAKING_CORE.length % extraSp.length];
             SPEAKING_CORE.push({ scenario: ex.s, options: [...ex.o], correct: ex.c, explanation: ex.explanation });
         }
@@ -366,7 +361,6 @@
             totalStars: 0, feedback: '', currentCorrectCount: 0,
             dailyMode: false, dailyTarget: 0,
             wrongQuestions: [],        // 本轮错题记录
-            redoQuestions: [],        // 重做时的题目列表（固定）
             isReviewMode: false        // 是否在错题重做模式
         };
 
@@ -446,9 +440,11 @@
 
         function renderStart() {
             const streak = getStreak();
+            const soundLabel = _soundEnabled ? '🔊 声音已开启' : '🔇 点击开启声音';
             container.innerHTML = `
                 <div class="dino">🦖</div><h1>KET 全能冒险岛</h1>
                 <p>📚词汇2000 | 📐语法1500 | 🗣️口语500</p>
+                <button class="btn sound-btn" onclick="game.toggleSound()">${soundLabel}</button>
                 <button class="btn start-btn" onclick="game.startDaily()">📅 每日打卡</button>
                 <button class="btn start-btn" style="background:#2980b9;box-shadow:0 5px 0 #1c5980;" onclick="game.startGame()">自由闯关 🚀</button>
                 <p style="margin-top:15px;">🔥 连续打卡 ${streak} 天</p>
@@ -481,26 +477,9 @@
             if (q.type === 'vocab') html = `<div class="question-text">"${q.english}" 的中文意思是？</div>`;
             else if (q.type === 'grammar') html = `<div class="question-text">${q.question || '（题目缺失）'}</div>`;
             else html = `<div class="question-text">${q.scenario}</div><button class="btn" id="btnReadScenario" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
-            
-            // 如果已经有反馈（已作答），保留按钮状态
-            let optsHtml = '';
-            if (state.feedback && state.canAnswer === false) {
-                // 已作答，重新生成带状态的按钮
-                optsHtml = q.options.map((opt,i)=>{
-                    let cls = 'option-btn';
-                    if (i === q.correct) cls += ' correct';
-                    else if (state.wrongQuestions.length > 0) {
-                        const lastWrong = state.wrongQuestions[state.wrongQuestions.length-1];
-                        if (lastWrong && lastWrong.wrongIdx === i) cls += ' wrong';
-                    }
-                    return `<button class="${cls}" disabled>${opt}</button>`;
-                }).join('');
-            } else {
-                // 未作答，正常生成按钮
-                optsHtml = q.options.map((opt,i)=>`<button class="option-btn" data-action="answer" data-idx="${i}">${opt}</button>`).join('');
-            }
-            
-            container.innerHTML = `<div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${modeLabel}</span><span class="score">⭐ ${state.stars}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div><div class="timer">⏳ ${state.timeLeft}</div><div class="question-area">${html}</div><div class="options">${optsHtml}</div><div class="feedback-msg">${state.feedback||''}</div>`;
+            const opts = q.options.map((opt,i)=>`<button class="option-btn" data-action="answer" data-idx="${i}">${opt}</button>`).join('');
+            const feedbackClass = state.feedback && state.feedback.includes('❌') ? 'feedback-msg explain' : 'feedback-msg';
+            container.innerHTML = `<div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${modeLabel}</span><span class="score">⭐ ${state.stars}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div><div class="timer">⏳ ${state.timeLeft}</div><div class="question-area">${html}</div><div class="options">${opts}</div><div class="${feedbackClass}">${state.feedback||''}</div>`;
         }
 
         function renderReview() {
@@ -521,42 +500,6 @@
             const t = state.totalStars;
             let cert = t>=8?'<div class="certificate">🎉 金钥匙！</div>':(t>=5?'<div class="certificate">👍 不错！</div>':'');
             container.innerHTML = `<div class="dino">🦖🎉</div><h2>冒险完成！</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(t)} (${t}/9)</p>${cert}<button class="btn" onclick="game.restart()">再玩一次</button><button class="btn" onclick="game.goToStart()">返回首页</button>`;
-        }
-
-        // 只更新反馈区域，不重新渲染整个页面
-        function updateFeedback() {
-            const feedbackEl = container.querySelector('.feedback-msg');
-            if (!feedbackEl) return;
-            feedbackEl.textContent = state.feedback || '';
-            if (state.feedback && state.feedback.includes('❌')) {
-                feedbackEl.className = 'feedback-msg explain';
-            } else {
-                feedbackEl.className = 'feedback-msg';
-            }
-        }
-
-        // 显示"下一题"按钮（替换反馈区域，或放在反馈下方）
-        function showNextButton() {
-            // 如果已经显示过，不再重复添加
-            if (container.querySelector('.next-btn')) return;
-            const feedbackEl = container.querySelector('.feedback-msg');
-            if (!feedbackEl) return;
-            const nextBtn = document.createElement('button');
-            nextBtn.className = 'btn next-btn';
-            nextBtn.textContent = '下一题 ➤';
-            nextBtn.style.marginTop = '12px';
-            nextBtn.onclick = function() {
-                // 移除下一题按钮
-                const btn = container.querySelector('.next-btn');
-                if (btn) btn.remove();
-                // 进入下一题或结束
-                if (state.lives <= 0) {
-                    gameOver();
-                } else {
-                    nextQuestion();
-                }
-            };
-            feedbackEl.insertAdjacentElement('afterend', nextBtn);
         }
 
         // ===== 事件委托 =====
@@ -632,54 +575,27 @@
                 state.feedback='✅ 正确！ +10分'; playSound('correct');
                 if(q.type==='vocab') speakNow(q.english);
                 else speakNow(q.options[q.correct]);
-                // 正确时显示"下一题"按钮
-                updateFeedback();
-                showNextButton();
             } else {
                 state.lives--;
                 // 记录错题
                 state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
-                // 当场显示正确答案 + 解析
-                const correctAnswer = q.options[q.correct];
-                const wrongAnswer = q.options[idx];
-                let explain = '';
-                if (q.type === 'vocab') {
-                    explain = `📖 解析："${q.english}" 的意思是"${correctAnswer}"，不是"${wrongAnswer}"。`;
-                } else if (q.type === 'grammar') {
-                    explain = `📖 解析：${q.explanation || '请记住这个语法点。'}`;
-                } else if (q.type === 'speaking') {
-                    explain = `📖 解析：正确表达是"${correctAnswer}"。${q.explanation || ''}`;
-                }
-                state.feedback = `❌ 错误！生命-1\n✅ 正确答案：${correctAnswer}\n${explain}`;
+                state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
-                // 显示反馈 + 下一题按钮，不自动跳转
-                updateFeedback();
-                showNextButton();
             }
+            const delay = correct ? 2000 : 3500;
+            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, delay);
         }
         function handleTimeout() {
             state.canAnswer=false; state.lives--;
             const q = state.questions[state.currentIndex];
-            const correctAnswer = q.options[q.correct];
             // 超时也记错题
             state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
-            // 当场显示正确答案 + 解析
-            let explain = '';
-            if (q.type === 'vocab') {
-                explain = `📖 解析："${q.english}" 的意思是"${correctAnswer}"。`;
-            } else if (q.type === 'grammar') {
-                explain = `📖 解析：${q.explanation || '请记住这个语法点。'}`;
-            } else if (q.type === 'speaking') {
-                explain = `📖 解析：正确表达是"${correctAnswer}"。${q.explanation || ''}`;
-            }
-            state.feedback = `⏰ 时间到！生命-1\n✅ 正确答案：${correctAnswer}\n${explain}`;
+            state.feedback = `⏰ 时间到！生命-1\n${getExplanation(q)}`;
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
             speakNow(q.options[q.correct]);
-            // 显示反馈 + 下一题按钮，不自动跳转
-            updateFeedback();
-            showNextButton();
+            setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 3500);
         }
         function nextQuestion() {
             state.currentIndex++;
@@ -700,6 +616,7 @@
             state.totalStars=Object.values(state.collectedStars).reduce((a,b)=>a+b,0);
             // 如果有错题，进入错题回顾
             if (state.wrongQuestions.length > 0) {
+                state.redoQuestions = []; // 重置，下次重新备份完整列表
                 state.screen = 'review'; render();
             } else {
                 state.currentCorrectCount=0;
@@ -733,19 +650,19 @@
         // ===== 错题重做 =====
         function startReviewRedo() {
             if (!state.wrongQuestions.length) return;
-            // 从错题生成新题目（打乱选项顺序），存入 redoQuestions（固定列表）
-            state.redoQuestions = state.wrongQuestions.map(item => {
+            // 从错题生成新题目（打乱选项顺序）
+            const redoQuestions = state.wrongQuestions.map(item => {
                 const origQ = item.question;
                 const newOpts = shuffleArray(origQ.options);
                 const newCorrect = newOpts.indexOf(origQ.options[origQ.correct]);
                 return { ...origQ, options: newOpts, correct: newCorrect };
             });
-            state.questions = state.redoQuestions;
+            state.questions = redoQuestions;
             state.currentIndex = 0;
             state.currentCorrectCount = 0;
             state.canAnswer = true;
             state.feedback = '';
-            state.wrongQuestions = [];  // 清空，本轮错题会重新往里 push
+            state.wrongQuestions = []; // 清空，重新记录本轮错题
             state.isReviewMode = true;
             state.screen = 'playing';
             startTimer();
@@ -753,24 +670,27 @@
         }
         function finishReviewRedo() {
             clearInterval(state.timerInterval);
-            // 如果还有错题（本轮做错的），继续重做
+            // 如果还有错题，继续重做
             if (state.wrongQuestions.length > 0) {
                 state.screen = 'review';
                 render();
             } else {
                 // 全部做对了！
-                state.isReviewMode = false;
                 if (state.dailyMode) {
-                    completeDaily(state.redoQuestions.length, state.redoQuestions.length);
+                    completeDaily(state.questions.length, state.questions.length);
                 } else {
                     // 闯关模式：回到关卡结算
+                    const total = state.questions.length; // 这轮全对
                     state.currentCorrectCount = 0;
+                    state.isReviewMode = false;
                     container.innerHTML = `<h2>🎉 错题全部做对！</h2><p>太棒了，继续加油！</p><button class="btn" onclick="game.continueAdventure()">继续冒险</button>`;
                 }
             }
         }
         function skipReview() {
             state.wrongQuestions = [];
+            state.thisRoundWrong = [];
+            state.redoQuestions = [];
             state.isReviewMode = false;
             if (state.dailyMode) {
                 const total = state.questions.length;
@@ -808,10 +728,11 @@
             container.innerHTML = `<div class="dino">😢</div><h2>生命耗尽</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(state.totalStars)}</p><button class="btn" onclick="game.restart()">重新挑战</button>`;
         }
 
+        function toggleSound() { unlockAll(); playSound('correct'); _soundEnabled = true; render(); }
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, continueAdventure, goToStart, restart, startReviewRedo, skipReview };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview };
         render();
     })();
 </script>
