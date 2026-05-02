@@ -709,6 +709,8 @@
                 state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
+                // 更新反馈区域DOM，显示解释
+                updateFeedback();
                 // 答错：显示"下一题"按钮，不自动跳转
                 showNextButton();
             }
@@ -722,8 +724,19 @@
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
             speakNow(q.options[q.correct]);
+            // 更新反馈区域DOM，显示解释
+            updateFeedback();
             // 显示"下一题"按钮，不自动跳转
             showNextButton();
+        }
+        function updateFeedback() {
+            // 更新反馈区域的DOM，显示解释文字
+            const feedbackDiv = document.querySelector('.feedback-msg') || document.querySelector('.explain');
+            if (feedbackDiv && state.feedback) {
+                const isWrong = state.feedback.includes('❌');
+                feedbackDiv.className = isWrong ? 'feedback-msg explain' : 'feedback-msg';
+                feedbackDiv.innerHTML = state.feedback.replace(/\n/g, '<br>');
+            }
         }
         function showNextButton() {
             if (state.lives <= 0) { gameOver(); return; }
