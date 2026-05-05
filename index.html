@@ -102,13 +102,19 @@
         }
 
         // ===== 语音朗读：audio元素 + 有道TTS（微信/安卓/iOS全兼容）=====
-        // 有道词典发音 API：美式发音 type=1，国内可直连，无需 key
+        // 有道词典发音 API：美式发音 type=2，国内可直连，无需 key
         function getTTSUrl(text) {
             return 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(text) + '&type=2';
         }
 
+        // 清理TTS文本：去掉方括号、替换占位符
+        function cleanTTSText(text) {
+            return text.replace(/\[name\]/g, 'Tom').replace(/[\[\]]/g, '').trim();
+        }
+
         function speakNow(text) {
             if (!text) return;
+            text = cleanTTSText(text);
             // 方案1（优先）：<audio> + 有道TTS —— 微信/安卓/全平台通用
             try {
                 if (!_ttsAudio) {
@@ -117,7 +123,12 @@
                 }
                 _ttsAudio.pause();
                 _ttsAudio.src = getTTSUrl(text);
+                // 设置超时：如果2秒内没播放成功，回退到 speechSynthesis
+                const fallbackTimer = setTimeout(() => { speakNowFallback(text); }, 2000);
+                _ttsAudio.onplay = () => { clearTimeout(fallbackTimer); };
+                _ttsAudio.onerror = () => { clearTimeout(fallbackTimer); speakNowFallback(text); };
                 _ttsAudio.play().catch(() => {
+                    clearTimeout(fallbackTimer);
                     // audio.play() 被阻止时，回退到 speechSynthesis
                     speakNowFallback(text);
                 });
