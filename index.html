@@ -580,8 +580,9 @@
 
         // 计算打卡题型分配（50%词汇 / 25%语法 / 25%口语）
         function getDailyAllocation(target) {
-            const vocabCount = Math.max(1, Math.round(target * 0.5));
-            const grammarCount = Math.max(1, Math.round(target * 0.25));
+            // 词汇60%，语法20%，口语20%（词汇至少60个当target>=100）
+            const vocabCount = Math.max(1, Math.round(target * 0.6));
+            const grammarCount = Math.max(1, Math.round(target * 0.2));
             const speakingCount = Math.max(1, target - vocabCount - grammarCount);
             return { vocabCount, grammarCount, speakingCount };
         }
