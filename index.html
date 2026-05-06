@@ -498,6 +498,8 @@
             collectedStars: { vocab: 0, grammar: 0, speaking: 0 },
             totalStars: 0, feedback: '', currentCorrectCount: 0,
             dailyMode: false, dailyTarget: 0,
+            dailyCorrect: { vocab: 0, grammar: 0, speaking: 0 },
+            dailyTotal: { vocab: 0, grammar: 0, speaking: 0 },
             wrongQuestions: [],        // 本轮错题记录
             isReviewMode: false        // 是否在错题重做模式
         };
@@ -505,6 +507,84 @@
         const STORAGE_KEY_TARGET = 'ket_daily_target';
         const STORAGE_KEY_PROGRESS = 'ket_daily_progress';
         const STORAGE_KEY_STREAK = 'ket_streak';
+
+        
+        // ===== 词汇记忆复习系统（艾宾浩斯间隔复习）=====
+        const STORAGE_KEY_VOCAB_PLAN = 'ket_vocab_plan';
+
+        function getVocabPlan() {
+            try { return JSON.parse(localStorage.getItem(STORAGE_KEY_VOCAB_PLAN)) || {}; }
+            catch(e) { return {}; }
+        }
+        function setVocabPlan(plan) { localStorage.setItem(STORAGE_KEY_VOCAB_PLAN, JSON.stringify(plan)); }
+
+        // 艾宾浩斯间隔表（毫秒）：新词→1天→2天→4天→7天→15天→已掌握
+        const REVIEW_INTERVALS = [0, 86400000, 172800000, 345600000, 604800000, 1296000000];
+
+        function getNextReviewTime(level) {
+            if (level >= 6) return 0; // 已掌握
+            return Date.now() + REVIEW_INTERVALS[level];
+        }
+
+        // 记录词汇答题结果，更新复习计划
+        function recordVocabAnswer(word, correct) {
+            const plan = getVocabPlan();
+            const entry = plan[word] || { level: 0, reviews: [], nextReview: 0 };
+            if (correct) {
+                entry.level = Math.min(entry.level + 1, 6);
+            } else {
+                // 答错：重置到 level 1（明天再复习）
+                entry.level = Math.max(entry.level - 1, 1);
+            }
+            entry.reviews.push(Date.now());
+            entry.nextReview = getNextReviewTime(entry.level);
+            if (entry.level >= 6) entry.nextReview = 0; // 已掌握，不再复习
+            plan[word] = entry;
+            setVocabPlan(plan);
+        }
+
+        // 获取今日待复习词汇（优先）+ 新词补齐
+        function getDueVocabWords(count) {
+            const plan = getVocabPlan();
+            const now = Date.now();
+            const allWords = [...ALL_WORDS];
+            // 待复习词（nextReview <= now 且未掌握）
+            let dueWords = [];
+            for (const w of allWords) {
+                const entry = plan[w];
+                if (entry && entry.level < 6 && entry.nextReview <= now) {
+                    dueWords.push(w);
+                }
+            }
+            // 如果待复习词不够，加入未记录的新词
+            let newWords = allWords.filter(w => !plan[w]);
+            // 打乱
+            dueWords = dueWords.sort(() => Math.random() - 0.5);
+            newWords = newWords.sort(() => Math.random() - 0.5);
+            const result = [...dueWords];
+            while (result.length < count && newWords.length > 0) {
+                result.push(newWords.shift());
+            }
+            // 如果还不够，用已掌握但到期的词补齐（复习轮次循环）
+            if (result.length < count) {
+                let mastered = allWords.filter(w => {
+                    const entry = plan[w];
+                    return entry && entry.level >= 6;
+                }).sort(() => Math.random() - 0.5);
+                while (result.length < count && mastered.length > 0) {
+                    result.push(mastered.shift());
+                }
+            }
+            return result.slice(0, count);
+        }
+
+        // 计算打卡题型分配（50%词汇 / 25%语法 / 25%口语）
+        function getDailyAllocation(target) {
+            const vocabCount = Math.max(1, Math.round(target * 0.5));
+            const grammarCount = Math.max(1, Math.round(target * 0.25));
+            const speakingCount = Math.max(1, target - vocabCount - grammarCount);
+            return { vocabCount, grammarCount, speakingCount };
+        }
 
         function getTodayStr() { return new Date().toISOString().slice(0,10); }
         function getDailyTarget() { return parseInt(localStorage.getItem(STORAGE_KEY_TARGET)) || 0; }
@@ -592,11 +672,12 @@
             const progress = getDailyProgress();
             const streak = getStreak();
             if (!target) {
-                container.innerHTML = `<h2>设定每日单词目标</h2><p>你想要每天记多少个单词？</p><div class="goal-select">${[5,10,15,20,30,40,50,60].map(n=>`<button class="goal-btn" onclick="game.setDailyGoal(${n})">${n} 个</button>`).join('')}</div><button class="btn" onclick="game.goToStart()">返回</button>`;
+                container.innerHTML = `<h2>📅 设定每日打卡目标</h2><p>目标 = 词汇 + 语法 + 口语，按比例分配</p><div class="goal-select">${[10,15,20,30,40,50].map(n=>`<button class="goal-btn" onclick="game.setDailyGoal(${n})">${n} 题</button>`).join('')}</div><button class="btn" onclick="game.goToStart()">返回</button>`;
                 return;
             }
             const done = progress >= target;
-            container.innerHTML = `<h2>📅 今日打卡</h2><p>目标：${target} 个单词</p><div class="daily-progress">✅ ${progress} / ${target}</div><div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,(progress/target)*100)}%;"></div></div><p>🔥 已连续打卡 ${streak} 天</p>${done?`<p style="color:green;font-size:1.5rem;">🎉 今日目标已完成！</p>`:`<button class="btn" onclick="game.startDailyVocab()">开始今日学习</button>`}<button class="btn" onclick="game.goToStart()" style="background:#95a5a6;">返回首页</button><button class="btn" onclick="game.resetDaily()" style="background:#e74c3c;box-shadow:0 5px 0 #c0392b;">重新设定目标</button>`;
+            const alloc = getDailyAllocation(target);
+            container.innerHTML = `<h2>📅 今日打卡</h2><p>目标：${target} 题（词汇${alloc.vocabCount}+语法${alloc.grammarCount}+口语${alloc.speakingCount}）</p><div class="daily-progress">✅ ${progress} / ${target}</div><div class="progress-bar"><div class="progress-fill" style="width:${Math.min(100,(progress/target)*100)}%;"></div></div><p>🔥 已连续打卡 ${streak} 天</p>${done?`<p style="color:green;font-size:1.5rem;">🎉 今日目标已完成！</p>`:`<button class="btn" onclick="game.startDailyPractice()">开始今日打卡</button>`}<button class="btn" onclick="game.goToStart()" style="background:#95a5a6;">返回首页</button><button class="btn" onclick="game.resetDaily()" style="background:#e74c3c;box-shadow:0 5px 0 #c0392b;">重新设定目标</button>`;
         }
 
         function renderWorldSelect() {
@@ -615,7 +696,18 @@
             else html = `<div class="question-text">${q.scenario}</div><button class="btn" id="btnReadScenario" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
             const opts = q.options.map((opt,i)=>`<button class="option-btn" data-action="answer" data-idx="${i}">${opt}</button>`).join('');
             const feedbackClass = state.feedback && state.feedback.includes('❌') ? 'feedback-msg explain' : 'feedback-msg';
-            container.innerHTML = `<div class="header"><span class="lives">${'❤️'.repeat(state.lives)}</span><span>${modeLabel}</span><span class="score">⭐ ${state.stars}</span></div><div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div><div class="timer">⏳ ${state.timeLeft}</div><div class="question-area">${html}</div><div class="options">${opts}</div><div class="${feedbackClass}">${state.feedback||''}</div>`;
+            // 打卡模式：显示各题型进度，不显示生命值
+            let headerHTML = '';
+            if (state.dailyMode) {
+                const dc = state.dailyCorrect, dt = state.dailyTotal;
+                headerHTML = `<div class="header"><span>📅 每日打卡</span><span class="score">⭐ ${state.stars}</span></div>
+                    <div style="font-size:0.9rem;margin:8px 0;color:#2c3e50;">
+                        🌳词汇 ${dc.vocab||0}/${dt.vocab||0} &nbsp;|&nbsp; ⛰️语法 ${dc.grammar||0}/${dt.grammar||0} &nbsp;|&nbsp; 🏘️口语 ${dc.speaking||0}/${dt.speaking||0}
+                    </div>`;
+            } else {
+                headerHTML = `<div class="header"><span class="lives">${'❤️'.repeat(Math.max(0,state.lives))}</span><span>${modeLabel}</span><span class="score">⭐ ${state.stars}</span></div>`;
+            }
+            container.innerHTML = `${headerHTML}<div class="progress-bar"><div class="progress-fill" style="width:${progress}%;"></div></div><div class="timer">⏳ ${state.timeLeft}</div><div class="question-area">${html}</div><div class="options">${opts}</div><div class="${feedbackClass}">${state.feedback||''}</div>`;
         }
 
         function renderReview() {
@@ -664,19 +756,46 @@
             state.collectedStars = { vocab:0, grammar:0, speaking:0 };
             state.totalStars=0; state.dailyMode=false; state.isReviewMode=false;
             state.wrongQuestions=[];
+            state.dailyCorrect = { vocab:0, grammar:0, speaking:0 };
+            state.dailyTotal = { vocab:0, grammar:0, speaking:0 };
             state.screen='selectWorld'; render();
         }
         function startDaily() { state.screen='daily'; render(); }
         function setDailyGoal(n) { setDailyTarget(n); setDailyProgress(0); render(); }
         function resetDaily() { localStorage.removeItem(STORAGE_KEY_TARGET); localStorage.removeItem(STORAGE_KEY_PROGRESS); render(); }
-        function startDailyVocab() {
+        function startDailyPractice() {
             const target = getDailyTarget();
             if (!target) return;
+            const alloc = getDailyAllocation(target);
             state.dailyMode = true; state.isReviewMode = false;
-            state.currentWorld = 'vocab'; state.currentIndex = 0;
+            state.currentWorld = 'daily'; state.currentIndex = 0;
             state.currentCorrectCount = 0; state.canAnswer = true;
             state.feedback = ''; state.wrongQuestions = [];
-            state.questions = generateVocabQuestions(target);
+            state.dailyCorrect = { vocab: 0, grammar: 0, speaking: 0 };
+            state.dailyTotal = { vocab: 0, grammar: 0, speaking: 0 };
+
+            // 按记忆计划获取词汇题
+            const vocabWords = getDueVocabWords(alloc.vocabCount);
+            const vocabQuestions = vocabWords.map(word => {
+                const correctCN = WORD_MEANING[word] || '(' + word + ')';
+                const distractors = [];
+                const others = Object.keys(WORD_MEANING).filter(w => w !== word);
+                while (distractors.length < 3) {
+                    const r = others[Math.floor(Math.random() * others.length)];
+                    const m = WORD_MEANING[r];
+                    if (m && !distractors.includes(m) && m !== correctCN) distractors.push(m);
+                }
+                const options = shuffleArray([correctCN, ...distractors]);
+                return { type: 'vocab', english: word, options, correct: options.indexOf(correctCN) };
+            });
+
+            const grammarQuestions = generateGrammarQuestions(alloc.grammarCount).map(q => ({...q, type:'grammar'}));
+            const speakingQuestions = generateSpeakingQuestions(alloc.speakingCount).map(q => ({...q, type:'speaking'}));
+
+            // 混合三种题型
+            state.questions = shuffleArray([...vocabQuestions, ...grammarQuestions, ...speakingQuestions]);
+            // 记录各题型总数
+            state.dailyTotal = { vocab: vocabQuestions.length, grammar: grammarQuestions.length, speaking: speakingQuestions.length };
             state.screen = 'playing'; startTimer(); render();
         }
         function selectWorld(world) {
@@ -708,36 +827,95 @@
             });
             if(correct) {
                 state.score+=10; state.stars++; state.currentCorrectCount++;
+                // 打卡模式：记录各题型正确数
+                if (state.dailyMode && q.type) {
+                    state.dailyCorrect[q.type] = (state.dailyCorrect[q.type] || 0) + 1;
+                }
                 state.feedback='✅ 正确！ +10分'; playSound('correct');
                 if(q.type==='vocab') speakNow(q.english);
                 else speakNow(q.options[q.correct]);
-                // 答对：延迟1.5秒后自动下一题
-                setTimeout(()=>{ if(state.lives<=0) gameOver(); else nextQuestion(); }, 1500);
+                // 词汇题：记录复习计划（打卡模式下）
+                if (q.type === 'vocab' && state.dailyMode) {
+                    recordVocabAnswer(q.english, true);
+                }
+                // 答对：延迟1.5秒后自动下一题（打卡模式不检查 lives）
+                setTimeout(()=>{
+                    if (!state.dailyMode && state.lives<=0) { gameOver(); return; }
+                    nextQuestion();
+                }, 1500);
             } else {
-                state.lives--;
-                // 记录错题
+                if (state.isReviewMode) {
+                    // 重做模式：答错不前进，重新打乱选项，在同一题重试
+                    state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
+                    state.feedback = `❌ 再想想，做对了再继续哦！\n${getExplanation(q, idx)}`;
+                    playSound('wrong');
+                    speakNow(q.options[q.correct]);
+                    updateFeedback();
+                    // 重新打乱当前题的选项，原地重试
+                    const newOpts = shuffleArray(q.options);
+                    const newCorrect = newOpts.indexOf(q.options[q.correct]);
+                    state.questions[state.currentIndex].options = newOpts;
+                    state.questions[state.currentIndex].correct = newCorrect;
+                    state.canAnswer = true;
+                    // 重渲染当前题目（不前进）
+                    render();
+                    return;
+                }
+                // 打卡模式不扣生命，只记录
+                if (!state.dailyMode) {
+                    state.lives--;
+                }
+                // 记录错题 + 更新打卡正确数
                 state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
-                state.feedback = `❌ 错误！生命-1\n${getExplanation(q, idx)}`;
+                if (q.type && state.dailyMode) {
+                    // 打卡模式：答错也计入 total，correct 不增加
+                    state.dailyTotal[q.type] = (state.dailyTotal[q.type] || 0);
+                }
+                // 词汇题：记录复习计划
+                if (q.type === 'vocab' && state.dailyMode) {
+                    recordVocabAnswer(q.english, false);
+                }
+                state.feedback = `❌ 错误！\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
-                // 更新反馈区域DOM，显示解释
                 updateFeedback();
-                // 答错：显示"下一题"按钮，不自动跳转
                 showNextButton();
             }
         }
         function handleTimeout() {
-            state.canAnswer=false; state.lives--;
+            state.canAnswer=false;
             const q = state.questions[state.currentIndex];
+            if (state.isReviewMode) {
+                // 重做模式：超时也不前进，原地重试
+                state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
+                state.feedback = `❌ 再想想，做对了再继续哦！\n${getExplanation(q)}`;
+                playSound('wrong');
+                speakNow(q.options[q.correct]);
+                updateFeedback();
+                // 重新打乱当前题的选项，原地重试
+                const newOpts = shuffleArray(q.options);
+                const newCorrect = newOpts.indexOf(q.options[q.correct]);
+                state.questions[state.currentIndex].options = newOpts;
+                state.questions[state.currentIndex].correct = newCorrect;
+                state.canAnswer = true;
+                render();
+                return;
+            }
+            // 打卡模式不扣生命
+            if (!state.dailyMode) {
+                state.lives--;
+            }
             // 超时也记错题
             state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
-            state.feedback = `⏰ 时间到！生命-1\n${getExplanation(q)}`;
+            // 词汇题：记录复习计划（超时=答错）
+            if (q.type === 'vocab' && state.dailyMode) {
+                recordVocabAnswer(q.english, false);
+            }
+            state.feedback = `⏰ 时间到！\n${getExplanation(q)}`;
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
             speakNow(q.options[q.correct]);
-            // 更新反馈区域DOM，显示解释
             updateFeedback();
-            // 显示"下一题"按钮，不自动跳转
             showNextButton();
         }
         function updateFeedback() {
@@ -750,7 +928,7 @@
             }
         }
         function showNextButton() {
-            if (state.lives <= 0) { gameOver(); return; }
+            if (!state.isReviewMode && state.lives <= 0) { gameOver(); return; }
             // 检查是否所有题目已完成
             if (state.currentIndex >= state.questions.length - 1) {
                 // 最后一题，跳转至结束逻辑
@@ -766,7 +944,9 @@
         function nextQuestion() {
             state.currentIndex++;
             if(state.currentIndex >= state.questions.length) {
-                if (state.dailyMode && !state.isReviewMode) finishDaily();
+                if (state.dailyMode && !state.isReviewMode) {
+                    finishDaily();
+                }
                 else if (state.isReviewMode) finishReviewRedo();
                 else finishWorld();
             } else { state.canAnswer=true; state.feedback=''; startTimer(); render(); }
@@ -791,26 +971,44 @@
         }
         function finishDaily() {
             clearInterval(state.timerInterval);
-            const total = state.questions.length;
-            const correct = state.currentCorrectCount;
+            // 打卡模式：检查是否所有题型都完成了
+            const dc = state.dailyCorrect, dt = state.dailyTotal;
+            const allDone = (dc.vocab||0) >= (dt.vocab||0) && (dc.grammar||0) >= (dt.grammar||0) && (dc.speaking||0) >= (dt.speaking||0);
+            if (!allDone) {
+                // 还有题型没完成，继续出剩余题目（用 nextQuestion 会继续）
+                // 实际上 finishDaily 只在 currentIndex >= questions.length 时调用
+                // 所以这里直接进错题回顾或完成
+            }
             // 如果有错题，先进入错题回顾
             if (state.wrongQuestions.length > 0) {
                 state.screen = 'review'; render();
                 return;
             }
-            completeDaily(total, correct);
+            completeDaily();
         }
-        function completeDaily(total, correct) {
-            setDailyProgress(total);
+        function completeDaily() {
+            const target = getDailyTarget();
+            setDailyProgress(target);
             const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0,10);
             const progressData = JSON.parse(localStorage.getItem(STORAGE_KEY_PROGRESS) || '{}');
             const hasYesterday = progressData[yesterday] !== undefined;
             let streak = getStreak();
-            if (getTodayStr() !== yesterday && hasYesterday) streak += 1;
-            else if (!hasYesterday) streak = 1;
+            if (!progressData[getTodayStr()]) {
+                // 今天第一次完成
+                if (hasYesterday) streak += 1;
+                else if (!hasYesterday && streak === 0) streak = 1;
+                else if (!hasYesterday) streak = 1;
+            }
             setStreak(streak);
             state.dailyMode = false; state.isReviewMode = false;
-            container.innerHTML = `<h2>📅 今日打卡完成！</h2><p>学习了 ${total} 个单词，答对 ${correct} 题</p><p>🔥 连续打卡 ${streak} 天</p><button class="btn" onclick="game.goToStart()">返回首页</button><button class="btn" onclick="game.startDaily()">继续打卡</button>`;
+            const dc = state.dailyCorrect, dt = state.dailyTotal;
+            container.innerHTML = `<h2>📅 今日打卡完成！</h2>
+                <p>🌳 词汇：${dc.vocab||0}/${dt.vocab||0} ✅</p>
+                <p>⛰️ 语法：${dc.grammar||0}/${dt.grammar||0} ✅</p>
+                <p>🏘️ 口语：${dc.speaking||0}/${dt.speaking||0} ✅</p>
+                <p>🔥 连续打卡 ${streak} 天</p>
+                <button class="btn" onclick="game.goToStart()">返回首页</button>
+                <button class="btn" onclick="game.startDaily()">继续打卡</button>`;
         }
 
         // ===== 错题重做 =====
@@ -830,6 +1028,7 @@
             state.feedback = '';
             state.wrongQuestions = []; // 清空，重新记录本轮错题
             state.isReviewMode = true;
+            state.lives = TOTAL_LIVES; // 重做时重置生命，避免生命为0直接结束
             state.screen = 'playing';
             startTimer();
             render();
@@ -898,7 +1097,7 @@
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyVocab, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview, nextQuestion, showNextButton };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyPractice, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview, nextQuestion, showNextButton };
         render();
     })();
 </script>
