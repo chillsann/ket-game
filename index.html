@@ -37,7 +37,6 @@
         .btn { background: #3498db; color: white; border: none; border-radius: 50px; padding: 15px 35px; font-size: 1.2rem; font-weight: bold; cursor: pointer; transition: 0.2s; margin: 5px; box-shadow: 0 5px 0 #1f618d; }
         .btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #1f618d; }
         .start-btn { background: #e67e22; box-shadow: 0 5px 0 #b85c0c; font-size: 1.5rem; }
-        .sound-btn { background: #9b59b6; box-shadow: 0 5px 0 #6c3483; font-size: 1rem; padding: 10px 25px; }
         .world-card { background: #fff3cd; border-radius: 25px; padding: 15px; margin: 10px; cursor: pointer; transition: 0.2s; border: 3px solid #f39c12; font-weight: bold; display: inline-block; width: 28%; min-width: 100px; }
         .world-card:hover { background: #ffeaa7; transform: scale(1.03); }
         .world-icon { font-size: 2.5rem; }
@@ -62,9 +61,7 @@
         // ===== 音频系统 =====
         let _audioCtx = null;
         let _soundEnabled = true;
-        // 语音播放用的 <audio> 元素（微信/安卓最可靠的方式）
         let _ttsAudio = null;
-        // speechSynthesis 保活
         let _currentUtterance = null;
         let _speechKeepAlive = null;
 
@@ -101,13 +98,10 @@
             } catch(e) {}
         }
 
-        // ===== 语音朗读：audio元素 + 有道TTS（微信/安卓/iOS全兼容）=====
-        // 有道词典发音 API：美式发音 type=2，国内可直连，无需 key
         function getTTSUrl(text) {
             return 'https://dict.youdao.com/dictvoice?audio=' + encodeURIComponent(text) + '&type=2';
         }
 
-        // 清理TTS文本：去掉方括号、替换占位符
         function cleanTTSText(text) {
             return text.replace(/\[name\]/g, 'Tom').replace(/[\[\]]/g, '').trim();
         }
@@ -115,7 +109,6 @@
         function speakNow(text) {
             if (!text) return;
             text = cleanTTSText(text);
-            // 方案1（优先）：<audio> + 有道TTS —— 微信/安卓/全平台通用
             try {
                 if (!_ttsAudio) {
                     _ttsAudio = new Audio();
@@ -123,22 +116,18 @@
                 }
                 _ttsAudio.pause();
                 _ttsAudio.src = getTTSUrl(text);
-                // 设置超时：如果2秒内没播放成功，回退到 speechSynthesis
                 const fallbackTimer = setTimeout(() => { speakNowFallback(text); }, 2000);
                 _ttsAudio.onplay = () => { clearTimeout(fallbackTimer); };
                 _ttsAudio.onerror = () => { clearTimeout(fallbackTimer); speakNowFallback(text); };
                 _ttsAudio.play().catch(() => {
                     clearTimeout(fallbackTimer);
-                    // audio.play() 被阻止时，回退到 speechSynthesis
                     speakNowFallback(text);
                 });
             } catch(e) {
-                // <audio> 不可用时回退
                 speakNowFallback(text);
             }
         }
 
-        // 方案2（回退）：speechSynthesis —— Chrome/Safari 可用，微信不可用
         function speakNowFallback(text) {
             if (!('speechSynthesis' in window)) return;
             const synth = window.speechSynthesis;
@@ -160,7 +149,6 @@
             }, 100);
         }
 
-        // 首次交互解锁音频
         function unlockAll() {
             try { getAudioCtx(); } catch(e) {}
             _soundEnabled = true;
@@ -170,139 +158,14 @@
         });
 
         // ===== 词汇库 =====
-                const KET_LEXICON = {
+        const KET_LEXICON = {
             nouns: ["apple","banana","orange","grape","water","milk","bread","rice","chicken","fish","food","meal","fruit","meat","egg","vegetable","salad","sandwich","soup","chocolate","sweet","biscuit","dog","cat","bird","rabbit","horse","sheep","cow","elephant","tiger","animal","pet","farm","head","face","eye","ear","nose","mouth","hand","arm","leg","foot","shirt","T-shirt","dress","skirt","shoes","hat","coat","socks","trousers","jacket","sweater","clothes","uniform","sun","moon","star","rain","snow","wind","cloud","flower","tree","grass","red","blue","green","yellow","black","white","colour","city","town","village","river","mountain","sea","beach","island","forest","home","house","room","bed","bedroom","bathroom","kitchen","garden","floor","wall","door","window","photo","picture","map","name","time","day","morning","afternoon","evening","night","today","tomorrow","yesterday","birthday","week","weekend","month","year","hour","minute","money","price","phone","computer","camera","television","TV","radio","music","song","game","sport","football","tennis","swimming","film","party","cake","ice cream","juice","tea","coffee","ticket","key","email","internet","family","parent","grandparent","grandfather","grandmother","uncle","aunt","cousin","baby","friend","teacher","pupil","student","doctor","nurse","job","driver","farmer","policeman","fireman","school","classroom","lesson","homework","break","park","shop","restaurant","hotel","hospital","library","cinema","museum","market","place","station","bus stop","airport","country","language","weather","world","road","street","bridge","holiday","present","letter","story","newspaper","magazine"],
             verbs: ["be","have","have got","do","make","get","know","think","take","see","come","want","look","use","find","give","tell","work","call","try","ask","answer","hate","need","feel","become","leave","put","mean","keep","let","begin","start","stop","finish","close","turn on","turn off","open","help","talk","show","hear","play","run","move","like","love","live","believe","hold","bring","happen","write","sit","stand","lose","pay","meet","set","learn","study","change","lead","understand","watch","follow","swim","fly","drive","ride","arrive","wait","buy","eat","drink","cook","wash","clean","listen","read","draw","sing","dance","wear","put on","take off","visit","travel","win","hope","choose","carry","cost","save","forget","grow","fall","break","cut","send","build","stay","pass","sell","require","report","decide","pull","phone","email","teach","turn","happen"],
             adjectives: ["good","bad","nice","beautiful","ugly","happy","sad","angry","tired","hungry","thirsty","ill","well","hot","cold","warm","cool","new","old","young","big","small","large","little","long","short","tall","fat","thin","fast","slow","early","late","easy","difficult","hard","cheap","expensive","free","busy","quiet","loud","clean","dirty","full","empty","open","closed","right","wrong","same","different","favourite","important","famous","popular","interesting","boring","funny","kind","friendly","dangerous","safe","afraid","alone","lucky","ready","sorry"]
-        };;
+        };
         const ALL_WORDS = [...KET_LEXICON.nouns, ...KET_LEXICON.verbs, ...KET_LEXICON.adjectives];
         const WORD_MEANING = {"apple":"苹果","banana":"香蕉","orange":"橙子","grape":"葡萄","water":"水","milk":"牛奶","bread":"面包","rice":"米饭","chicken":"鸡肉","fish":"鱼","dog":"狗","cat":"猫","bird":"鸟","rabbit":"兔子","horse":"马","sheep":"绵羊","cow":"奶牛","elephant":"大象","tiger":"老虎","lion":"狮子","book":"书","pen":"钢笔","pencil":"铅笔","ruler":"尺子","bag":"书包","desk":"书桌","chair":"椅子","table":"桌子","door":"门","window":"窗户","car":"汽车","bus":"公交车","train":"火车","bicycle":"自行车","plane":"飞机","boat":"船","taxi":"出租车","motorbike":"摩托车","helicopter":"直升机","house":"房子","school":"学校","park":"公园","shop":"商店","hospital":"医院","library":"图书馆","cinema":"电影院","museum":"博物馆","market":"市场","mother":"妈妈","father":"爸爸","sister":"姐妹","brother":"兄弟","baby":"婴儿","friend":"朋友","teacher":"老师","student":"学生","doctor":"医生","shirt":"衬衫","dress":"连衣裙","shoes":"鞋子","hat":"帽子","coat":"外套","socks":"袜子","trousers":"裤子","jacket":"夹克","sweater":"毛衣","sun":"太阳","moon":"月亮","star":"星星","rain":"雨","snow":"雪","wind":"风","cloud":"云","flower":"花","tree":"树","grass":"草","city":"城市","town":"城镇","village":"村庄","river":"河流","mountain":"山","sea":"大海","beach":"沙滩","island":"岛","forest":"森林","breakfast":"早餐","lunch":"午餐","dinner":"晚餐","cake":"蛋糕","ice cream":"冰淇淋","juice":"果汁","tea":"茶","coffee":"咖啡","sugar":"糖","name":"名字","time":"时间","day":"天","week":"周","month":"月","year":"年","hour":"小时","minute":"分钟","money":"钱","price":"价格","phone":"电话","computer":"电脑","camera":"相机","television":"电视","radio":"收音机","music":"音乐","song":"歌曲","game":"游戏","family":"家庭","home":"家","room":"房间","bed":"床","bath":"浴室","kitchen":"厨房","garden":"花园","floor":"地板","wall":"墙","party":"聚会","holiday":"假日","present":"礼物","letter":"信","story":"故事","newspaper":"报纸","magazine":"杂志","country":"国家","language":"语言","weather":"天气","world":"世界","road":"道路","street":"街道","bridge":"桥","airport":"机场","photo":"照片","picture":"图画","map":"地图","ticket":"票","key":"钥匙","umbrella":"伞","baggage":"行李","passport":"护照","be":"是","have":"有","do":"做","say":"说","go":"去","get":"得到","make":"做","know":"知道","think":"想","take":"拿","see":"看","come":"来","want":"想要","look":"看","use":"使用","find":"找到","give":"给","tell":"告诉","work":"工作","call":"打电话","try":"尝试","ask":"问","need":"需要","feel":"感觉","become":"成为","leave":"离开","put":"放","mean":"意味着","keep":"保持","let":"让","begin":"开始","seem":"似乎","help":"帮助","talk":"谈话","turn":"转","start":"开始","show":"展示","hear":"听到","play":"玩","run":"跑","move":"移动","like":"喜欢","live":"住","believe":"相信","hold":"握住","bring":"带来","happen":"发生","write":"写","provide":"提供","sit":"坐","stand":"站","lose":"丢失","pay":"付钱","meet":"见面","include":"包括","continue":"继续","set":"设置","learn":"学习","change":"改变","lead":"带领","understand":"理解","watch":"观看","follow":"跟随","stop":"停止","create":"创造","speak":"说","read":"读","allow":"允许","add":"添加","spend":"花费","grow":"成长","open":"打开","walk":"走路","win":"赢","offer":"提供","remember":"记住","love":"爱","consider":"考虑","appear":"出现","buy":"买","wait":"等待","serve":"服务","die":"死","send":"发送","expect":"期望","build":"建造","stay":"停留","fall":"落下","cut":"切","reach":"到达","kill":"杀死","remain":"保持","suggest":"建议","raise":"举起","pass":"通过","sell":"卖","require":"需要","report":"报告","decide":"决定","pull":"拉","good":"好的","new":"新的","first":"第一的","last":"最后的","long":"长的","great":"伟大的","little":"小的","own":"自己的","other":"其他的","old":"老的","right":"对的","big":"大的","high":"高的","different":"不同的","small":"小的","large":"大的","next":"下一个","early":"早的","young":"年轻的","important":"重要的","few":"很少的","public":"公共的","bad":"坏的","same":"相同的","able":"能够的","happy":"开心的","sad":"伤心的","hungry":"饿的","thirsty":"渴的","tired":"累的","beautiful":"美丽的","strong":"强壮的","clean":"干净的","dirty":"脏的","easy":"容易的","difficult":"困难的","full":"满的","empty":"空的","hot":"热的","cold":"冷的","warm":"温暖的","cool":"凉爽的","fast":"快的","slow":"慢的","cheap":"便宜的","expensive":"贵的","closed":"关着的","free":"免费的","busy":"忙的","ready":"准备好的","sorry":"抱歉的","afraid":"害怕的","alone":"独自的","famous":"著名的","modern":"现代的","popular":"流行的","interesting":"有趣的","boring":"无聊的","exciting":"令人兴奋的","funny":"好笑的","kind":"善良的","lucky":"幸运的","quiet":"安静的","noisy":"吵闹的","safe":"安全的","dangerous":"危险的","dry":"干的","wet":"湿的",
-        "T-shirt":"T恤",
-        "TV":"电视",
-        "afternoon":"下午",
-        "angry":"生气的",
-        "animal":"动物",
-        "answer":"回答",
-        "arm":"手臂",
-        "arrive":"到达",
-        "aunt":"阿姨",
-        "bathroom":"浴室",
-        "bedroom":"卧室",
-        "birthday":"生日",
-        "biscuit":"饼干",
-        "black":"黑色的",
-        "blue":"蓝色的",
-        "break":"休息",
-        "bus stop":"公交站",
-        "carry":"携带",
-        "chocolate":"巧克力",
-        "choose":"选择",
-        "classroom":"教室",
-        "close":"关闭",
-        "clothes":"衣服",
-        "colour":"颜色",
-        "cook":"烹饪",
-        "cost":"花费",
-        "cousin":"堂兄弟姐妹",
-        "dance":"跳舞",
-        "draw":"画画",
-        "drink":"喝",
-        "drive":"驾驶",
-        "driver":"司机",
-        "ear":"耳朵",
-        "eat":"吃",
-        "egg":"鸡蛋",
-        "email":"电子邮件",
-        "evening":"晚上",
-        "eye":"眼睛",
-        "face":"脸",
-        "farm":"农场",
-        "farmer":"农民",
-        "fat":"胖的",
-        "favourite":"最喜欢的",
-        "film":"电影",
-        "finish":"完成",
-        "fireman":"消防员",
-        "fly":"飞",
-        "food":"食物",
-        "foot":"脚",
-        "football":"足球",
-        "forget":"忘记",
-        "friendly":"友好的",
-        "fruit":"水果",
-        "grandfather":"祖父",
-        "grandmother":"祖母",
-        "grandparent":"祖父母",
-        "green":"绿色的",
-        "hand":"手",
-        "hard":"困难的",
-        "hate":"讨厌",
-        "have got":"有",
-        "head":"头",
-        "homework":"家庭作业",
-        "hope":"希望",
-        "hotel":"酒店",
-        "ill":"生病的",
-        "internet":"互联网",
-        "job":"工作",
-        "late":"迟到的",
-        "leg":"腿",
-        "lesson":"课",
-        "listen":"听",
-        "loud":"大声的",
-        "meal":"一餐",
-        "meat":"肉",
-        "morning":"早上",
-        "mouth":"嘴巴",
-        "nice":"好的",
-        "night":"夜晚",
-        "nose":"鼻子",
-        "nurse":"护士",
-        "parent":"父母",
-        "pet":"宠物",
-        "place":"地方",
-        "policeman":"警察",
-        "pupil":"小学生",
-        "put on":"穿上",
-        "red":"红色的",
-        "restaurant":"餐厅",
-        "ride":"骑",
-        "salad":"沙拉",
-        "sandwich":"三明治",
-        "save":"节省",
-        "short":"矮的",
-        "sing":"唱歌",
-        "skirt":"短裙",
-        "soup":"汤",
-        "sport":"运动",
-        "station":"车站",
-        "study":"学习",
-        "sweet":"甜的",
-        "swim":"游泳",
-        "swimming":"游泳",
-        "take off":"脱下",
-        "tall":"高的",
-        "teach":"教",
-        "tennis":"网球",
-        "thin":"瘦的",
-        "today":"今天",
-        "tomorrow":"明天",
-        "travel":"旅行",
-        "turn off":"关闭",
-        "turn on":"打开",
-        "ugly":"丑陋的",
-        "uncle":"叔叔",
-        "uniform":"制服",
-        "vegetable":"蔬菜",
-        "visit":"拜访",
-        "wash":"洗",
-        "wear":"穿",
-        "weekend":"周末",
-        "well":"好的",
-        "white":"白色的",
-        "wrong":"错误的",
-        "yellow":"黄色的",
-        "yesterday":"昨天"
+        "T-shirt":"T恤","TV":"电视","afternoon":"下午","angry":"生气的","animal":"动物","answer":"回答","arm":"手臂","arrive":"到达","aunt":"阿姨","bathroom":"浴室","bedroom":"卧室","birthday":"生日","biscuit":"饼干","black":"黑色的","blue":"蓝色的","break":"休息","bus stop":"公交站","carry":"携带","chocolate":"巧克力","choose":"选择","classroom":"教室","close":"关闭","clothes":"衣服","colour":"颜色","cook":"烹饪","cost":"花费","cousin":"堂兄弟姐妹","dance":"跳舞","draw":"画画","drink":"喝","drive":"驾驶","driver":"司机","ear":"耳朵","eat":"吃","egg":"鸡蛋","email":"电子邮件","evening":"晚上","eye":"眼睛","face":"脸","farm":"农场","farmer":"农民","fat":"胖的","favourite":"最喜欢的","film":"电影","finish":"完成","fireman":"消防员","fly":"飞","food":"食物","foot":"脚","football":"足球","forget":"忘记","friendly":"友好的","fruit":"水果","grandfather":"祖父","grandmother":"祖母","grandparent":"祖父母","green":"绿色的","hand":"手","hard":"困难的","hate":"讨厌","have got":"有","head":"头","homework":"家庭作业","hope":"希望","hotel":"酒店","ill":"生病的","internet":"互联网","job":"工作","late":"迟到的","leg":"腿","lesson":"课","listen":"听","loud":"大声的","meal":"一餐","meat":"肉","morning":"早上","mouth":"嘴巴","nice":"好的","night":"夜晚","nose":"鼻子","nurse":"护士","parent":"父母","pet":"宠物","place":"地方","policeman":"警察","pupil":"小学生","put on":"穿上","red":"红色的","restaurant":"餐厅","ride":"骑","salad":"沙拉","sandwich":"三明治","save":"节省","short":"矮的","sing":"唱歌","skirt":"短裙","soup":"汤","sport":"运动","station":"车站","study":"学习","sweet":"甜的","swim":"游泳","swimming":"游泳","take off":"脱下","tall":"高的","teach":"教","tennis":"网球","thin":"瘦的","today":"今天","tomorrow":"明天","travel":"旅行","turn off":"关闭","turn on":"打开","ugly":"丑陋的","uncle":"叔叔","uniform":"制服","vegetable":"蔬菜","visit":"拜访","wash":"洗","wear":"穿","weekend":"周末","well":"好的","white":"白色的","wrong":"错误的","yellow":"黄色的","yesterday":"昨天"
     };
 
         // ===== 语法题库（带讲解）=====
@@ -500,87 +363,48 @@
             dailyMode: false, dailyTarget: 0,
             dailyCorrect: { vocab: 0, grammar: 0, speaking: 0 },
             dailyTotal: { vocab: 0, grammar: 0, speaking: 0 },
-            wrongQuestions: [],        // 本轮错题记录
-            isReviewMode: false        // 是否在错题重做模式
+            wrongQuestions: [],
+            isReviewMode: false
         };
 
         const STORAGE_KEY_TARGET = 'ket_daily_target';
         const STORAGE_KEY_PROGRESS = 'ket_daily_progress';
         const STORAGE_KEY_STREAK = 'ket_streak';
-
-        
-        // ===== 词汇记忆复习系统（艾宾浩斯间隔复习）=====
         const STORAGE_KEY_VOCAB_PLAN = 'ket_vocab_plan';
 
-        function getVocabPlan() {
-            try { return JSON.parse(localStorage.getItem(STORAGE_KEY_VOCAB_PLAN)) || {}; }
-            catch(e) { return {}; }
-        }
+        function getVocabPlan() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY_VOCAB_PLAN)) || {}; } catch(e) { return {}; } }
         function setVocabPlan(plan) { localStorage.setItem(STORAGE_KEY_VOCAB_PLAN, JSON.stringify(plan)); }
-
-        // 艾宾浩斯间隔表（毫秒）：新词→1天→2天→4天→7天→15天→已掌握
         const REVIEW_INTERVALS = [0, 86400000, 172800000, 345600000, 604800000, 1296000000];
-
-        function getNextReviewTime(level) {
-            if (level >= 6) return 0; // 已掌握
-            return Date.now() + REVIEW_INTERVALS[level];
-        }
-
-        // 记录词汇答题结果，更新复习计划
+        function getNextReviewTime(level) { if (level >= 6) return 0; return Date.now() + REVIEW_INTERVALS[level]; }
         function recordVocabAnswer(word, correct) {
             const plan = getVocabPlan();
             const entry = plan[word] || { level: 0, reviews: [], nextReview: 0 };
-            if (correct) {
-                entry.level = Math.min(entry.level + 1, 6);
-            } else {
-                // 答错：重置到 level 1（明天再复习）
-                entry.level = Math.max(entry.level - 1, 1);
-            }
+            if (correct) entry.level = Math.min(entry.level + 1, 6);
+            else entry.level = Math.max(entry.level - 1, 1);
             entry.reviews.push(Date.now());
             entry.nextReview = getNextReviewTime(entry.level);
-            if (entry.level >= 6) entry.nextReview = 0; // 已掌握，不再复习
+            if (entry.level >= 6) entry.nextReview = 0;
             plan[word] = entry;
             setVocabPlan(plan);
         }
-
-        // 获取今日待复习词汇（优先）+ 新词补齐
         function getDueVocabWords(count) {
             const plan = getVocabPlan();
             const now = Date.now();
             const allWords = [...ALL_WORDS];
-            // 待复习词（nextReview <= now 且未掌握）
             let dueWords = [];
-            for (const w of allWords) {
-                const entry = plan[w];
-                if (entry && entry.level < 6 && entry.nextReview <= now) {
-                    dueWords.push(w);
-                }
-            }
-            // 如果待复习词不够，加入未记录的新词
+            for (const w of allWords) { const entry = plan[w]; if (entry && entry.level < 6 && entry.nextReview <= now) dueWords.push(w); }
             let newWords = allWords.filter(w => !plan[w]);
-            // 打乱
             dueWords = dueWords.sort(() => Math.random() - 0.5);
             newWords = newWords.sort(() => Math.random() - 0.5);
             const result = [...dueWords];
-            while (result.length < count && newWords.length > 0) {
-                result.push(newWords.shift());
-            }
-            // 如果还不够，用已掌握但到期的词补齐（复习轮次循环）
+            while (result.length < count && newWords.length > 0) result.push(newWords.shift());
             if (result.length < count) {
-                let mastered = allWords.filter(w => {
-                    const entry = plan[w];
-                    return entry && entry.level >= 6;
-                }).sort(() => Math.random() - 0.5);
-                while (result.length < count && mastered.length > 0) {
-                    result.push(mastered.shift());
-                }
+                let mastered = allWords.filter(w => { const entry = plan[w]; return entry && entry.level >= 6; }).sort(() => Math.random() - 0.5);
+                while (result.length < count && mastered.length > 0) result.push(mastered.shift());
             }
             return result.slice(0, count);
         }
-
-        // 计算打卡题型分配（50%词汇 / 25%语法 / 25%口语）
         function getDailyAllocation(target) {
-            // 词汇60%，语法20%，口语20%（词汇至少60个当target>=100）
             const vocabCount = Math.max(1, Math.round(target * 0.6));
             const grammarCount = Math.max(1, Math.round(target * 0.2));
             const speakingCount = Math.max(1, target - vocabCount - grammarCount);
@@ -673,7 +497,7 @@
             const progress = getDailyProgress();
             const streak = getStreak();
             if (!target) {
-                container.innerHTML = `<h2>📅 设定每日打卡目标</h2><p>目标 = 词汇 + 语法 + 口语，按比例分配</p><div class="goal-select">${[10,15,20,30,40,50].map(n=>`<button class="goal-btn" onclick="game.setDailyGoal(${n})">${n} 题</button>`).join('')}</div><button class="btn" onclick="game.goToStart()">返回</button>`;
+                container.innerHTML = `<h2>📅 设定每日打卡目标</h2><p>目标 = 词汇 + 语法 + 口语，按比例分配</p><div class="goal-select">${[10,15,20,30,40,50,100].map(n=>`<button class="goal-btn" onclick="game.setDailyGoal(${n})">${n} 题</button>`).join('')}</div><button class="btn" onclick="game.goToStart()">返回</button>`;
                 return;
             }
             const done = progress >= target;
@@ -697,7 +521,6 @@
             else html = `<div class="question-text">${q.scenario}</div><button class="btn" id="btnReadScenario" style="font-size:1rem;padding:8px 20px;">🔊 听发音</button>`;
             const opts = q.options.map((opt,i)=>`<button class="option-btn" data-action="answer" data-idx="${i}">${opt}</button>`).join('');
             const feedbackClass = state.feedback && state.feedback.includes('❌') ? 'feedback-msg explain' : 'feedback-msg';
-            // 打卡模式：显示各题型进度，不显示生命值
             let headerHTML = '';
             if (state.dailyMode) {
                 const dc = state.dailyCorrect, dt = state.dailyTotal;
@@ -719,7 +542,7 @@
                 const qText = getQuestionDisplay(q);
                 const correctAns = q.options[q.correct];
                 const wrongAns = item.wrongAnswer;
-                const explain = getExplanation(q, -1); // 不重复显示"你选的xxx是错的"
+                const explain = getExplanation(q, -1);
                 return `<div class="review-item"><div class="review-q">${i+1}. ${qText}</div><div class="review-wrong">❌ 你选的：${wrongAns}</div><div class="review-correct">✅ 正确答案：${correctAns}</div><div class="review-explain">${q.explanation || explain}</div></div>`;
             }).join('');
             container.innerHTML = `<h2>📋 错题回顾 <span class="review-label">${wq.length} 题</span></h2><div class="review-scroll">${reviewHtml}</div><button class="btn start-btn" onclick="game.startReviewRedo()">🔄 重做错题</button><button class="btn" onclick="game.skipReview()">跳过</button>`;
@@ -742,7 +565,6 @@
             }
         });
 
-        // "听发音"按钮事件
         document.addEventListener('click', function(e) {
             if (e.target.id === 'btnReadScenario' || e.target.closest('#btnReadScenario')) {
                 const q = state.questions[state.currentIndex];
@@ -775,7 +597,6 @@
             state.dailyCorrect = { vocab: 0, grammar: 0, speaking: 0 };
             state.dailyTotal = { vocab: 0, grammar: 0, speaking: 0 };
 
-            // 按记忆计划获取词汇题
             const vocabWords = getDueVocabWords(alloc.vocabCount);
             const vocabQuestions = vocabWords.map(word => {
                 const correctCN = WORD_MEANING[word] || '(' + word + ')';
@@ -793,9 +614,7 @@
             const grammarQuestions = generateGrammarQuestions(alloc.grammarCount).map(q => ({...q, type:'grammar'}));
             const speakingQuestions = generateSpeakingQuestions(alloc.speakingCount).map(q => ({...q, type:'speaking'}));
 
-            // 混合三种题型
             state.questions = shuffleArray([...vocabQuestions, ...grammarQuestions, ...speakingQuestions]);
-            // 记录各题型总数
             state.dailyTotal = { vocab: vocabQuestions.length, grammar: grammarQuestions.length, speaking: speakingQuestions.length };
             state.screen = 'playing'; startTimer(); render();
         }
@@ -828,54 +647,38 @@
             });
             if(correct) {
                 state.score+=10; state.stars++; state.currentCorrectCount++;
-                // 打卡模式：记录各题型正确数
                 if (state.dailyMode && q.type) {
                     state.dailyCorrect[q.type] = (state.dailyCorrect[q.type] || 0) + 1;
                 }
                 state.feedback='✅ 正确！ +10分'; playSound('correct');
                 if(q.type==='vocab') speakNow(q.english);
                 else speakNow(q.options[q.correct]);
-                // 词汇题：记录复习计划（打卡模式下）
                 if (q.type === 'vocab' && state.dailyMode) {
                     recordVocabAnswer(q.english, true);
                 }
-                // 答对：延迟1.5秒后自动下一题（打卡模式不检查 lives）
                 setTimeout(()=>{
                     if (!state.dailyMode && state.lives<=0) { gameOver(); return; }
                     nextQuestion();
                 }, 1500);
             } else {
                 if (state.isReviewMode) {
-                    // 重做模式：答错不前进，重新打乱选项，在同一题重试
                     state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
                     state.feedback = `❌ 再想想，做对了再继续哦！\n${getExplanation(q, idx)}`;
                     playSound('wrong');
                     speakNow(q.options[q.correct]);
                     updateFeedback();
-                    // 重新打乱当前题的选项，原地重试
                     const newOpts = shuffleArray(q.options);
                     const newCorrect = newOpts.indexOf(q.options[q.correct]);
                     state.questions[state.currentIndex].options = newOpts;
                     state.questions[state.currentIndex].correct = newCorrect;
                     state.canAnswer = true;
-                    // 重渲染当前题目（不前进）
                     render();
                     return;
                 }
-                // 打卡模式不扣生命，只记录
-                if (!state.dailyMode) {
-                    state.lives--;
-                }
-                // 记录错题 + 更新打卡正确数
+                if (!state.dailyMode) state.lives--;
                 state.wrongQuestions.push({ question: {...q}, wrongAnswer: q.options[idx], wrongIdx: idx });
-                if (q.type && state.dailyMode) {
-                    // 打卡模式：答错也计入 total，correct 不增加
-                    state.dailyTotal[q.type] = (state.dailyTotal[q.type] || 0);
-                }
-                // 词汇题：记录复习计划
-                if (q.type === 'vocab' && state.dailyMode) {
-                    recordVocabAnswer(q.english, false);
-                }
+                if (q.type && state.dailyMode) state.dailyTotal[q.type] = (state.dailyTotal[q.type] || 0);
+                if (q.type === 'vocab' && state.dailyMode) recordVocabAnswer(q.english, false);
                 state.feedback = `❌ 错误！\n${getExplanation(q, idx)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
@@ -887,13 +690,11 @@
             state.canAnswer=false;
             const q = state.questions[state.currentIndex];
             if (state.isReviewMode) {
-                // 重做模式：超时也不前进，原地重试
                 state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
                 state.feedback = `❌ 再想想，做对了再继续哦！\n${getExplanation(q)}`;
                 playSound('wrong');
                 speakNow(q.options[q.correct]);
                 updateFeedback();
-                // 重新打乱当前题的选项，原地重试
                 const newOpts = shuffleArray(q.options);
                 const newCorrect = newOpts.indexOf(q.options[q.correct]);
                 state.questions[state.currentIndex].options = newOpts;
@@ -902,16 +703,9 @@
                 render();
                 return;
             }
-            // 打卡模式不扣生命
-            if (!state.dailyMode) {
-                state.lives--;
-            }
-            // 超时也记错题
+            if (!state.dailyMode) state.lives--;
             state.wrongQuestions.push({ question: {...q}, wrongAnswer: '（未作答）', wrongIdx: -1 });
-            // 词汇题：记录复习计划（超时=答错）
-            if (q.type === 'vocab' && state.dailyMode) {
-                recordVocabAnswer(q.english, false);
-            }
+            if (q.type === 'vocab' && state.dailyMode) recordVocabAnswer(q.english, false);
             state.feedback = `⏰ 时间到！\n${getExplanation(q)}`;
             playSound('wrong');
             const btn = document.querySelector(`[data-idx="${q.correct}"]`); if(btn) btn.classList.add('correct');
@@ -920,7 +714,6 @@
             showNextButton();
         }
         function updateFeedback() {
-            // 更新反馈区域的DOM，显示解释文字
             const feedbackDiv = document.querySelector('.feedback-msg') || document.querySelector('.explain');
             if (feedbackDiv && state.feedback) {
                 const isWrong = state.feedback.includes('❌');
@@ -930,13 +723,7 @@
         }
         function showNextButton() {
             if (!state.isReviewMode && state.lives <= 0) { gameOver(); return; }
-            // 检查是否所有题目已完成
-            if (state.currentIndex >= state.questions.length - 1) {
-                // 最后一题，跳转至结束逻辑
-                nextQuestion();
-                return;
-            }
-            // 显示"下一题"按钮
+            if (state.currentIndex >= state.questions.length - 1) { nextQuestion(); return; }
             const feedbackDiv = document.querySelector('.feedback-msg') || document.querySelector('.explain');
             if (feedbackDiv) {
                 feedbackDiv.innerHTML += `<br><br><button class="btn" onclick="game.nextQuestion()" style="margin-top:10px;">下一题 ▶</button>`;
@@ -945,9 +732,7 @@
         function nextQuestion() {
             state.currentIndex++;
             if(state.currentIndex >= state.questions.length) {
-                if (state.dailyMode && !state.isReviewMode) {
-                    finishDaily();
-                }
+                if (state.dailyMode && !state.isReviewMode) finishDaily();
                 else if (state.isReviewMode) finishReviewRedo();
                 else finishWorld();
             } else { state.canAnswer=true; state.feedback=''; startTimer(); render(); }
@@ -961,9 +746,7 @@
             else if(correct>=total*0.5) stars=1;
             state.collectedStars[state.currentWorld]=stars;
             state.totalStars=Object.values(state.collectedStars).reduce((a,b)=>a+b,0);
-            // 如果有错题，进入错题回顾
             if (state.wrongQuestions.length > 0) {
-                state.redoQuestions = []; // 重置，下次重新备份完整列表
                 state.screen = 'review'; render();
             } else {
                 state.currentCorrectCount=0;
@@ -972,15 +755,6 @@
         }
         function finishDaily() {
             clearInterval(state.timerInterval);
-            // 打卡模式：检查是否所有题型都完成了
-            const dc = state.dailyCorrect, dt = state.dailyTotal;
-            const allDone = (dc.vocab||0) >= (dt.vocab||0) && (dc.grammar||0) >= (dt.grammar||0) && (dc.speaking||0) >= (dt.speaking||0);
-            if (!allDone) {
-                // 还有题型没完成，继续出剩余题目（用 nextQuestion 会继续）
-                // 实际上 finishDaily 只在 currentIndex >= questions.length 时调用
-                // 所以这里直接进错题回顾或完成
-            }
-            // 如果有错题，先进入错题回顾
             if (state.wrongQuestions.length > 0) {
                 state.screen = 'review'; render();
                 return;
@@ -995,7 +769,6 @@
             const hasYesterday = progressData[yesterday] !== undefined;
             let streak = getStreak();
             if (!progressData[getTodayStr()]) {
-                // 今天第一次完成
                 if (hasYesterday) streak += 1;
                 else if (!hasYesterday && streak === 0) streak = 1;
                 else if (!hasYesterday) streak = 1;
@@ -1012,10 +785,8 @@
                 <button class="btn" onclick="game.startDaily()">继续打卡</button>`;
         }
 
-        // ===== 错题重做 =====
         function startReviewRedo() {
             if (!state.wrongQuestions.length) return;
-            // 从错题生成新题目（打乱选项顺序）
             const redoQuestions = state.wrongQuestions.map(item => {
                 const origQ = item.question;
                 const newOpts = shuffleArray(origQ.options);
@@ -1027,27 +798,21 @@
             state.currentCorrectCount = 0;
             state.canAnswer = true;
             state.feedback = '';
-            state.wrongQuestions = []; // 清空，重新记录本轮错题
+            state.wrongQuestions = [];
             state.isReviewMode = true;
-            state.lives = TOTAL_LIVES; // 重做时重置生命，避免生命为0直接结束
+            state.lives = TOTAL_LIVES;
             state.screen = 'playing';
             startTimer();
             render();
         }
         function finishReviewRedo() {
             clearInterval(state.timerInterval);
-            // 如果还有错题，继续重做
             if (state.wrongQuestions.length > 0) {
                 state.screen = 'review';
                 render();
             } else {
-                // 全部做对了！
-                if (state.dailyMode) {
-                    completeDaily(state.questions.length, state.questions.length);
-                } else {
-                    // 闯关模式：回到关卡结算
-                    const total = state.questions.length; // 这轮全对
-                    state.currentCorrectCount = 0;
+                if (state.dailyMode) completeDaily();
+                else {
                     state.isReviewMode = false;
                     container.innerHTML = `<h2>🎉 错题全部做对！</h2><p>太棒了，继续加油！</p><button class="btn" onclick="game.continueAdventure()">继续冒险</button>`;
                 }
@@ -1055,17 +820,11 @@
         }
         function skipReview() {
             state.wrongQuestions = [];
-            state.thisRoundWrong = [];
-            state.redoQuestions = [];
             state.isReviewMode = false;
-            if (state.dailyMode) {
+            if (state.dailyMode) completeDaily();
+            else {
                 const total = state.questions.length;
-                const correct = state.currentCorrectCount;
-                completeDaily(total, correct);
-            } else {
-                // 回到关卡结算
-                const total = state.questions.length;
-                const correct = total - state.wrongQuestions.length;
+                const correct = total;
                 let stars = 0;
                 if(correct===total) stars=3;
                 else if(correct>=total*0.8) stars=2;
@@ -1085,11 +844,7 @@
         }
         function gameOver() {
             clearInterval(state.timerInterval);
-            // 游戏结束时如果有错题，也进入回顾
-            if (state.wrongQuestions.length > 0) {
-                state.screen = 'review'; render();
-                return;
-            }
+            if (state.wrongQuestions.length > 0) { state.screen = 'review'; render(); return; }
             state.totalStars=Object.values(state.collectedStars).reduce((a,b)=>a+b,0);
             container.innerHTML = `<div class="dino">😢</div><h2>生命耗尽</h2><p>总分：${state.score}</p><p>总星星：${'⭐'.repeat(state.totalStars)}</p><button class="btn" onclick="game.restart()">重新挑战</button>`;
         }
@@ -1098,7 +853,7 @@
         function goToStart() { clearInterval(state.timerInterval); state.screen='start'; render(); }
         function restart() { clearInterval(state.timerInterval); startGame(); }
 
-        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyPractice, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview, nextQuestion, showNextButton };
+        window.game = { startGame, startDaily, setDailyGoal, resetDaily, startDailyPractice, selectWorld, answer, continueAdventure, goToStart, restart, toggleSound, startReviewRedo, skipReview, nextQuestion };
         render();
     })();
 </script>
